@@ -1,0 +1,20 @@
+# Netlify 部署配置文件
+
+[build]
+  # 构建命令
+  command = "npm run build"
+  # 发布目录
+  publish = "dist"
+
+# 重定向规则（支持单页应用路由）
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 构建环境变量（如果需要）
+[build.environment]
+  NODE_VERSION = "20"
+
+
+

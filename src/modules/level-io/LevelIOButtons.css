@@ -1,0 +1,35 @@
+.level-io-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.io-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.io-btn-generate {
+  background-color: #4caf50;
+  color: white;
+}
+
+.io-btn-generate:hover {
+  background-color: #45a049;
+}
+
+.io-btn-read {
+  background-color: #2196f3;
+  color: white;
+}
+
+.io-btn-read:hover {
+  background-color: #1976d2;
+}
+
