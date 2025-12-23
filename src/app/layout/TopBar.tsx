@@ -31,6 +31,8 @@ interface TopBarProps {
   selectedRopeIndex: number | null;
   isEditingRopePath: boolean;
   isMaskEditing: boolean;
+  levelName: string;
+  onLevelNameChange: (name: string) => void;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
@@ -45,6 +47,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   selectedRopeIndex,
   isEditingRopePath,
   isMaskEditing,
+  levelName,
+  onLevelNameChange,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
@@ -52,6 +56,31 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleMaskEditing,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * 清理文件名：移除非法字符
+   * @param name 原始文件名
+   * @returns 清理后的文件名，若为空则返回 'level'
+   */
+  const sanitizeFileName = (name: string): string => {
+    // trim 空白字符
+    let sanitized = name.trim();
+    
+    // 若为空字符串，使用默认值
+    if (sanitized === '') {
+      return 'level';
+    }
+    
+    // 移除非法字符：\/:*?"<>|
+    sanitized = sanitized.replace(/[\/:*?"<>|]/g, '');
+    
+    // 再次检查是否为空（移除非法字符后可能为空）
+    if (sanitized === '') {
+      return 'level';
+    }
+    
+    return sanitized;
+  };
 
   // 处理生成关卡
   const handleGenerate = () => {
@@ -62,7 +91,10 @@ export const TopBar: React.FC<TopBarProps> = ({
       return;
     }
     try {
-      downloadLevelJson(levelData);
+      // 清理文件名并生成最终文件名
+      const sanitizedName = sanitizeFileName(levelName);
+      const filename = `${sanitizedName}.json`;
+      downloadLevelJson(levelData, filename);
       alert('关卡文件已成功生成并下载！');
     } catch (error) {
       alert('生成文件失败，请重试。');
@@ -118,6 +150,19 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
       <div className="top-bar-right">
+        <div className="top-bar-level-name-input">
+          <label htmlFor="level-name-input" className="top-bar-level-name-label">
+            关卡名:
+          </label>
+          <input
+            id="level-name-input"
+            type="text"
+            className="top-bar-level-name-input-field"
+            value={levelName}
+            onChange={(e) => onLevelNameChange(e.target.value)}
+            placeholder="请输入关卡文件名"
+          />
+        </div>
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>

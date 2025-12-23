@@ -69,6 +69,9 @@ export const App: React.FC = () => {
   });
   const [isMaskEditing, setIsMaskEditing] = useState<boolean>(false); // 是否处于构型编辑模式
 
+  // 关卡文件名状态
+  const [levelName, setLevelName] = useState<string>('level');
+
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）和 mask（避免错位）
   useEffect(() => {
     const validIndices = filterValidIndices(
@@ -119,6 +122,8 @@ export const App: React.FC = () => {
     // 重置 mask 为全 true
     setMask(new Array(10 * 10).fill(true));
     setIsMaskEditing(false);
+    // 重置关卡文件名
+    setLevelName('level');
   };
 
   // 处理选择变更（地图生成器用）
@@ -406,6 +411,8 @@ export const App: React.FC = () => {
         selectedRopeIndex={selectedRopeIndex}
         isEditingRopePath={isRopeEditing}
         isMaskEditing={isMaskEditing}
+        levelName={levelName}
+        onLevelNameChange={setLevelName}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
