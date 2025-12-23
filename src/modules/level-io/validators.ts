@@ -27,8 +27,8 @@ export interface ValidationResult {
  * Rule A：所有 Rope 的 ColorIdx 是否在有效范围内
  * 
  * 规则：
- * - ColorIdx 允许为 -1, 1~10（-1=无颜色，1~10=有颜色）
- * - 如果存在 ColorIdx 越界（<-1 或 >10 或 非数字）：报错 "Rope #N ColorIdx 越界"
+ * - ColorIdx 允许为 -1, 1~11（-1=无色，1~11=有颜色）
+ * - 如果存在 ColorIdx 越界（<-1 或 >11 或 非数字）：报错 "Rope #N ColorIdx 越界"
  * - ColorIdx=-1 是合法的，不会阻止生成
  * 
  * @param levelData 关卡数据
@@ -43,9 +43,9 @@ export function validateColorIdx(levelData: LevelData): string[] {
       errors.push(`Rope #${index + 1} ColorIdx 无效（必须是数字）`);
       return;
     }
-    // 检查是否越界（<-1 或 >10 或 在 -1 和 1 之间）
-    if (rope.ColorIdx < -1 || rope.ColorIdx > 10 || (rope.ColorIdx > -1 && rope.ColorIdx < 1)) {
-      errors.push(`Rope #${index + 1} ColorIdx 越界（允许范围：-1 或 1~10，当前值：${rope.ColorIdx}）`);
+    // 检查是否越界（<-1 或 >11 或 在 -1 和 1 之间）
+    if (rope.ColorIdx < -1 || rope.ColorIdx > 11 || (rope.ColorIdx > -1 && rope.ColorIdx < 1)) {
+      errors.push(`Rope #${index + 1} ColorIdx 越界（允许范围：-1 或 1~11，当前值：${rope.ColorIdx}）`);
     }
   });
 

@@ -172,7 +172,7 @@ export const App: React.FC = () => {
       H: 0,
       Index: [],
       BendCount: 0,
-      ColorIdx: getDefaultColorIdx(), // 默认使用颜色池的默认值（-1 = 无颜色）
+      ColorIdx: getDefaultColorIdx(), // 默认使用颜色池的默认值（-1 = 无色）
     };
     const newRopeIndex = levelData.Rope.length;
     setLevelData({

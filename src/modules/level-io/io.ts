@@ -124,7 +124,7 @@ function normalizeImportedLevel(levelData: LevelData): LevelData {
     if (normalizedColorIdx === 0 || normalizedColorIdx == null) {
       normalizedColorIdx = -1;
     }
-    // 若 ColorIdx 已为 -1 或 1~10，保持不变
+    // 若 ColorIdx 已为 -1 或 1~11，保持不变
     
     return {
       ...rope,
@@ -215,7 +215,7 @@ export async function readLevelJson(file: File): Promise<LevelData> {
             return;
           }
           if (typeof rope.ColorIdx !== 'number') {
-            // 若 ColorIdx 缺失，设为 -1（无颜色）
+            // 若 ColorIdx 缺失，设为 -1（无色）
             rope.ColorIdx = -1;
           }
         });
