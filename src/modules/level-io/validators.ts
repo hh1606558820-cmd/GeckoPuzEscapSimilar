@@ -210,14 +210,18 @@ export function validateRopeMovability(levelData: LevelData): string[] {
  * Rule D：检测轴方向冲突
  * 
  * 规则A（列冲突）：
- * - 同一 X（同一列）上不能同时出现 D=3 和 D=4 的 Rope
+ * - 同一 X（同一列）上，只要存在任意 Rope 的任意一个 Index 格子：
+ *   同时出现 D=3（右） 和 D=4（左）
+ * - 即判定为冲突，禁止生成关卡
  * 
  * 规则B（行冲突）：
- * - 同一 Y（同一行）上不能同时出现 D=1 和 D=2 的 Rope
+ * - 同一 Y（同一行）上，只要存在任意 Rope 的任意一个 Index 格子：
+ *   同时出现 D=1（上） 和 D=2（下）
+ * - 即判定为冲突，禁止生成关卡
  * 
  * 说明：
- * - X/Y 以 Rope 头部格子 H 的坐标为准（H 是头部）
- * - 使用 indexToXY(H, MapX) 得到 (x,y)，注意该函数应是逻辑坐标（左下角原点，y向上）
+ * - 遍历每条 Rope 的所有 Index 格子（不仅仅是头部 H）
+ * - 使用 indexToXY(index, MapX) 得到 (x,y)，注意该函数应是逻辑坐标（左下角原点，y向上）
  * 
  * @param levelData 关卡数据
  * @returns 错误信息数组
@@ -226,57 +230,53 @@ export function checkAxisDirectionConflicts(levelData: LevelData): string[] {
   const errors: string[] = [];
   const { MapX, Rope } = levelData;
 
-  // 列冲突检测：columnMap[x] = { directions: Set<number>, ropeIndices: number[] }
-  const columnMap = new Map<number, { directions: Set<number>; ropeIndices: number[] }>();
+  // 列冲突检测：columnDirMap[x] = Set<Direction>
+  const columnDirMap = new Map<number, Set<number>>();
   
-  // 行冲突检测：rowMap[y] = { directions: Set<number>, ropeIndices: number[] }
-  const rowMap = new Map<number, { directions: Set<number>; ropeIndices: number[] }>();
+  // 行冲突检测：rowDirMap[y] = Set<Direction>
+  const rowDirMap = new Map<number, Set<number>>();
 
-  // 遍历所有 rope，根据 D 值分类到 columnMap 和 rowMap
-  Rope.forEach((rope, ropeIndex) => {
+  // 遍历所有 rope，遍历每条 rope 的所有 Index 格子
+  Rope.forEach((rope) => {
     // 如果方向 D 无效，跳过
     if (rope.D === 0 || rope.D < 1 || rope.D > 4) {
       return;
     }
 
-    // 获取头部坐标
-    const { x, y } = indexToXY(rope.H, MapX);
-    const ropeNum = ropeIndex + 1;
+    // 遍历 rope.Index 中的每一个 index
+    rope.Index.forEach((index) => {
+      // 使用 indexToXY 得到 (x, y)
+      const { x, y } = indexToXY(index, MapX);
 
-    // 处理列冲突（D=3 或 D=4）
-    if (rope.D === 3 || rope.D === 4) {
-      if (!columnMap.has(x)) {
-        columnMap.set(x, { directions: new Set(), ropeIndices: [] });
+      // 处理列冲突（D=3 或 D=4）
+      if (rope.D === 3 || rope.D === 4) {
+        if (!columnDirMap.has(x)) {
+          columnDirMap.set(x, new Set());
+        }
+        columnDirMap.get(x)!.add(rope.D);
       }
-      const columnData = columnMap.get(x)!;
-      columnData.directions.add(rope.D);
-      columnData.ropeIndices.push(ropeNum);
-    }
 
-    // 处理行冲突（D=1 或 D=2）
-    if (rope.D === 1 || rope.D === 2) {
-      if (!rowMap.has(y)) {
-        rowMap.set(y, { directions: new Set(), ropeIndices: [] });
+      // 处理行冲突（D=1 或 D=2）
+      if (rope.D === 1 || rope.D === 2) {
+        if (!rowDirMap.has(y)) {
+          rowDirMap.set(y, new Set());
+        }
+        rowDirMap.get(y)!.add(rope.D);
       }
-      const rowData = rowMap.get(y)!;
-      rowData.directions.add(rope.D);
-      rowData.ropeIndices.push(ropeNum);
+    });
+  });
+
+  // 检测列冲突：若 columnDirMap[x] 同时包含 3 和 4 => 报错
+  columnDirMap.forEach((directions, x) => {
+    if (directions.has(3) && directions.has(4)) {
+      errors.push(`列冲突（左右冲突）：第 x=${x} 列上同时存在方向 D=3（右）和 D=4（左）的 Rope`);
     }
   });
 
-  // 检测列冲突：若 columnMap[x] 同时包含 3 和 4 => 报错
-  columnMap.forEach((columnData, x) => {
-    if (columnData.directions.has(3) && columnData.directions.has(4)) {
-      const ropeNums = columnData.ropeIndices.map(n => `#${n}`).join('、');
-      errors.push(`列冲突：第 x=${x} 列上同时存在方向 D=3 和 D=4 的 Rope（相关 Rope：${ropeNums}）`);
-    }
-  });
-
-  // 检测行冲突：若 rowMap[y] 同时包含 1 和 2 => 报错
-  rowMap.forEach((rowData, y) => {
-    if (rowData.directions.has(1) && rowData.directions.has(2)) {
-      const ropeNums = rowData.ropeIndices.map(n => `#${n}`).join('、');
-      errors.push(`行冲突：第 y=${y} 行上同时存在方向 D=1 和 D=2 的 Rope（相关 Rope：${ropeNums}）`);
+  // 检测行冲突：若 rowDirMap[y] 同时包含 1 和 2 => 报错
+  rowDirMap.forEach((directions, y) => {
+    if (directions.has(1) && directions.has(2)) {
+      errors.push(`行冲突（上下冲突）：第 y=${y} 行上同时存在方向 D=1（上）和 D=2（下）的 Rope`);
     }
   });
 
