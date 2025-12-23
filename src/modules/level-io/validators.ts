@@ -14,6 +14,7 @@
 
 import { LevelData } from '@/types/Level';
 import { isAdjacent } from '@/modules/rope-editor/ropeLogic';
+import { indexToXY } from '@/modules/rope-visualizer/geometry';
 
 /**
  * 校验结果接口
@@ -206,6 +207,83 @@ export function validateRopeMovability(levelData: LevelData): string[] {
 }
 
 /**
+ * Rule D：检测轴方向冲突
+ * 
+ * 规则A（列冲突）：
+ * - 同一 X（同一列）上不能同时出现 D=3 和 D=4 的 Rope
+ * 
+ * 规则B（行冲突）：
+ * - 同一 Y（同一行）上不能同时出现 D=1 和 D=2 的 Rope
+ * 
+ * 说明：
+ * - X/Y 以 Rope 头部格子 H 的坐标为准（H 是头部）
+ * - 使用 indexToXY(H, MapX) 得到 (x,y)，注意该函数应是逻辑坐标（左下角原点，y向上）
+ * 
+ * @param levelData 关卡数据
+ * @returns 错误信息数组
+ */
+export function checkAxisDirectionConflicts(levelData: LevelData): string[] {
+  const errors: string[] = [];
+  const { MapX, Rope } = levelData;
+
+  // 列冲突检测：columnMap[x] = { directions: Set<number>, ropeIndices: number[] }
+  const columnMap = new Map<number, { directions: Set<number>; ropeIndices: number[] }>();
+  
+  // 行冲突检测：rowMap[y] = { directions: Set<number>, ropeIndices: number[] }
+  const rowMap = new Map<number, { directions: Set<number>; ropeIndices: number[] }>();
+
+  // 遍历所有 rope，根据 D 值分类到 columnMap 和 rowMap
+  Rope.forEach((rope, ropeIndex) => {
+    // 如果方向 D 无效，跳过
+    if (rope.D === 0 || rope.D < 1 || rope.D > 4) {
+      return;
+    }
+
+    // 获取头部坐标
+    const { x, y } = indexToXY(rope.H, MapX);
+    const ropeNum = ropeIndex + 1;
+
+    // 处理列冲突（D=3 或 D=4）
+    if (rope.D === 3 || rope.D === 4) {
+      if (!columnMap.has(x)) {
+        columnMap.set(x, { directions: new Set(), ropeIndices: [] });
+      }
+      const columnData = columnMap.get(x)!;
+      columnData.directions.add(rope.D);
+      columnData.ropeIndices.push(ropeNum);
+    }
+
+    // 处理行冲突（D=1 或 D=2）
+    if (rope.D === 1 || rope.D === 2) {
+      if (!rowMap.has(y)) {
+        rowMap.set(y, { directions: new Set(), ropeIndices: [] });
+      }
+      const rowData = rowMap.get(y)!;
+      rowData.directions.add(rope.D);
+      rowData.ropeIndices.push(ropeNum);
+    }
+  });
+
+  // 检测列冲突：若 columnMap[x] 同时包含 3 和 4 => 报错
+  columnMap.forEach((columnData, x) => {
+    if (columnData.directions.has(3) && columnData.directions.has(4)) {
+      const ropeNums = columnData.ropeIndices.map(n => `#${n}`).join('、');
+      errors.push(`列冲突：第 x=${x} 列上同时存在方向 D=3 和 D=4 的 Rope（相关 Rope：${ropeNums}）`);
+    }
+  });
+
+  // 检测行冲突：若 rowMap[y] 同时包含 1 和 2 => 报错
+  rowMap.forEach((rowData, y) => {
+    if (rowData.directions.has(1) && rowData.directions.has(2)) {
+      const ropeNums = rowData.ropeIndices.map(n => `#${n}`).join('、');
+      errors.push(`行冲突：第 y=${y} 行上同时存在方向 D=1 和 D=2 的 Rope（相关 Rope：${ropeNums}）`);
+    }
+  });
+
+  return errors;
+}
+
+/**
  * 执行所有校验规则
  * 
  * @param levelData 关卡数据
@@ -220,7 +298,10 @@ export function validateLevel(levelData: LevelData): ValidationResult {
   // Rule B：校验路径
   errors.push(...validateRopePaths(levelData));
 
-  // Rule C：校验可移动性（仅在 Rule A 和 Rule B 通过时检查）
+  // Rule D：校验轴方向冲突
+  errors.push(...checkAxisDirectionConflicts(levelData));
+
+  // Rule C：校验可移动性（仅在 Rule A、Rule B 和 Rule D 通过时检查）
   if (errors.length === 0) {
     errors.push(...validateRopeMovability(levelData));
   }
