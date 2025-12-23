@@ -30,10 +30,12 @@ interface TopBarProps {
   showJsonPanel: boolean;
   selectedRopeIndex: number | null;
   isEditingRopePath: boolean;
+  isMaskEditing: boolean;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
   onClearLevel: () => void;
+  onToggleMaskEditing: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -42,10 +44,12 @@ export const TopBar: React.FC<TopBarProps> = ({
   showJsonPanel,
   selectedRopeIndex,
   isEditingRopePath,
+  isMaskEditing,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
   onClearLevel,
+  onToggleMaskEditing,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,6 +112,9 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="top-bar-status">
             编辑模式: {isEditingRopePath ? '编辑中' : '非编辑'}
           </span>
+          <span className="top-bar-status">
+            构型模式: {isMaskEditing ? '构型编辑中' : '普通模式'}
+          </span>
         </div>
       </div>
       <div className="top-bar-right">
@@ -116,6 +123,12 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
+        </button>
+        <button 
+          className={`top-bar-btn ${isMaskEditing ? 'active' : ''}`}
+          onClick={onToggleMaskEditing}
+        >
+          编辑构型
         </button>
         <button className="top-bar-btn" onClick={handleRead}>
           读取关卡

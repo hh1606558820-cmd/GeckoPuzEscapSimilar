@@ -16,7 +16,7 @@ import { MapGeneratorPanel } from '@/modules/map-generator/MapGeneratorPanel';
 import { GridCanvas } from '@/modules/map-generator/GridCanvas';
 import { RopeEditorPanel } from '@/modules/rope-editor/RopeEditorPanel';
 import { RopeManagerPanel } from '@/modules/rope-manager/RopeManagerPanel';
-import { filterValidIndices } from '@/modules/map-generator/selection';
+import { filterValidIndices, getCellPosition, getCellIndex } from '@/modules/map-generator/selection';
 import {
   appendPathPoint,
   undoPathPoint,
@@ -62,7 +62,14 @@ export const App: React.FC = () => {
   // 网格缩放状态
   const [zoom, setZoom] = useState<number>(1.0); // 缩放比例，默认 1.0，范围 0.5~2.0
 
-  // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
+  // 构型辅助（Mask）状态
+  const [mask, setMask] = useState<boolean[]>(() => {
+    // 初始化：全部为 true（全可用）
+    return new Array(levelData.MapX * levelData.MapY).fill(true);
+  });
+  const [isMaskEditing, setIsMaskEditing] = useState<boolean>(false); // 是否处于构型编辑模式
+
+  // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）和 mask（避免错位）
   useEffect(() => {
     const validIndices = filterValidIndices(
       selectedIndices,
@@ -72,6 +79,9 @@ export const App: React.FC = () => {
     if (validIndices.length !== selectedIndices.length) {
       setSelectedIndices(validIndices);
     }
+    // 重置 mask 为全 true
+    const newMaskSize = levelData.MapX * levelData.MapY;
+    setMask(new Array(newMaskSize).fill(true));
   }, [levelData.MapX, levelData.MapY]);
 
   // 处理地图尺寸变更
@@ -83,6 +93,7 @@ export const App: React.FC = () => {
     }));
     // 重置选择（避免越界）
     setSelectedIndices([]);
+    // mask 会在 useEffect 中自动重置
   };
 
   // 清空关卡配置，回到初始状态
@@ -105,6 +116,9 @@ export const App: React.FC = () => {
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
     setSelectedRopeIndex(null);
+    // 重置 mask 为全 true
+    setMask(new Array(10 * 10).fill(true));
+    setIsMaskEditing(false);
   };
 
   // 处理选择变更（地图生成器用）
@@ -210,6 +224,11 @@ export const App: React.FC = () => {
       return;
     }
 
+    // 检查 mask：如果 mask=false，忽略点击
+    if (index >= 0 && index < mask.length && !mask[index]) {
+      return;
+    }
+
     // 检查是否是撤销操作（点击最后一个格子）
     if (
       currentEditingPath.length > 0 &&
@@ -309,6 +328,60 @@ export const App: React.FC = () => {
     setShowJsonPanel((prev) => !prev);
   };
 
+  // ========== 构型辅助（Mask）相关处理函数 ==========
+
+  // 切换构型编辑模式
+  const handleToggleMaskEditing = () => {
+    setIsMaskEditing((prev) => !prev);
+    // 退出构型编辑模式时，也退出 Rope 编辑模式（避免冲突）
+    if (isMaskEditing) {
+      // 正在退出构型编辑模式，不需要额外操作
+    } else {
+      // 进入构型编辑模式，退出 Rope 编辑模式
+      if (isRopeEditing) {
+        setIsRopeEditing(false);
+        setCurrentEditingPath([]);
+      }
+    }
+  };
+
+  // 处理构型编辑模式下的格子点击（切换 mask）
+  const handleMaskCellClick = (index: number) => {
+    if (!isMaskEditing || index < 0 || index >= mask.length) {
+      return;
+    }
+    const newMask = [...mask];
+    newMask[index] = !newMask[index];
+    setMask(newMask);
+  };
+
+  // 处理构型编辑模式下的拖拽涂抹
+  const handleMaskDrag = (startIndex: number, endIndex: number) => {
+    if (!isMaskEditing) {
+      return;
+    }
+    // 获取拖拽范围内的所有格子索引
+    const startPos = getCellPosition(startIndex, levelData.MapX);
+    const endPos = getCellPosition(endIndex, levelData.MapX);
+    const minX = Math.min(startPos.x, endPos.x);
+    const maxX = Math.max(startPos.x, endPos.x);
+    const minY = Math.min(startPos.y, endPos.y);
+    const maxY = Math.max(startPos.y, endPos.y);
+
+    const newMask = [...mask];
+    // 将拖拽范围内的所有格子设置为与起始格子相反的状态
+    const startValue = mask[startIndex];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const idx = getCellIndex(x, y, levelData.MapX);
+        if (idx >= 0 && idx < newMask.length) {
+          newMask[idx] = !startValue;
+        }
+      }
+    }
+    setMask(newMask);
+  };
+
   // ========== 关卡文件管理相关处理函数（模块6） ==========
 
   // 处理加载关卡数据（读取关卡文件后调用）
@@ -332,10 +405,12 @@ export const App: React.FC = () => {
         showJsonPanel={showJsonPanel}
         selectedRopeIndex={selectedRopeIndex}
         isEditingRopePath={isRopeEditing}
+        isMaskEditing={isMaskEditing}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
+        onToggleMaskEditing={handleToggleMaskEditing}
       />
       
       <div className="app-layout">
@@ -385,6 +460,10 @@ export const App: React.FC = () => {
             showRopeOverlay={showRopeOverlay}
             zoom={zoom}
             onZoomChange={setZoom}
+            mask={mask}
+            isMaskEditing={isMaskEditing}
+            onMaskCellClick={handleMaskCellClick}
+            onMaskDrag={handleMaskDrag}
           />
         </div>
       </div>

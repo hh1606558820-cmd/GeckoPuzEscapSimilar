@@ -66,6 +66,16 @@
   background-color: #e0e0e0;
 }
 
+.top-bar-btn.active {
+  background-color: #2196f3;
+  color: white;
+  border-color: #1976d2;
+}
+
+.top-bar-btn.active:hover {
+  background-color: #1976d2;
+}
+
 /* 可拖拽侧边栏样式 */
 .resizable-sidebar {
   position: relative;
