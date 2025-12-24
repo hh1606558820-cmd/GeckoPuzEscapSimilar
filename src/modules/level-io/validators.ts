@@ -115,19 +115,17 @@ export function validateRopePaths(levelData: LevelData): string[] {
 /**
  * Rule C：检测初始状态下是否存在"全部绳子都不可消"的情况
  * 
- * 判定规则（最终规则，左下角原点，y 向上递增）：
- * - 计算每条 Rope 的"下一格"（使用 H（头部，Index[0]）和 D（头部朝向））：
- *   - D=1 上：H + MapX（y 增大）
- *   - D=2 下：H - MapX（y 减小）
- *   - D=3 右：H + 1（x 增大）
- *   - D=4 左：H - 1（x 减小）
- * - 判定是否被挡：
- *   - 若 nextIndex 越界（<0 或 >= MapX*MapY） => 视为"可消/可动"（不被挡）
- *   - 若 nextIndex 在地图内 => 若 nextIndex 被任意 Rope 的 Index 占用（包括自己身体、也包括其他 Rope） => 被挡
- *   - 否则 => 不被挡
- * - 关卡级判定：
- *   - 如果每一条 Rope 都被挡 => 报错
- *   - 只要存在一条不被挡 => 通过
+ * 判定规则（左下角原点，y 向上递增）：
+ * 1) 只检查头部 H 的前进方向 next
+ * 2) 若 next 在地图外 => 该 Rope 视为"可消"
+ * 3) 若 next 在地图内：
+ *    - 只要 next 被任意 Rope 占用（包含其他 Rope，也包含自身 Index 身体） => 该 Rope 不可消
+ *    - 否则可消
+ * 4) 只有当所有 Rope 都不可消时，才报错阻止生成
+ * 
+ * 实现细节：
+ * - 计算 nextIndex 时，必须基于 indexToXY(H, MapX) 得到 (x,y) 再判断出界，避免左右跨行误判
+ * - 占用判断：构建 occupied Set，包含所有 Rope 的所有 Index 格子
  * 
  * @param levelData 关卡数据
  * @returns 错误信息数组
@@ -135,17 +133,16 @@ export function validateRopePaths(levelData: LevelData): string[] {
 export function validateRopeMovability(levelData: LevelData): string[] {
   const errors: string[] = [];
   const { MapX, MapY, Rope } = levelData;
-  const maxIndex = MapX * MapY - 1;
 
-  // 预先构建占用集合，包含所有 Rope 的所有 Index
-  const occupiedAll = new Set<number>();
+  // 预先构建占用集合，包含所有 Rope 的所有 Index 格子
+  const occupied = new Set<number>();
   Rope.forEach((rope) => {
     rope.Index.forEach((index) => {
-      occupiedAll.add(index);
+      occupied.add(index);
     });
   });
 
-  // 检查每条 Rope 是否可移动
+  // 检查每条 Rope 是否可消
   const movableRopes: number[] = [];
   const blockedRopes: number[] = [];
 
@@ -162,43 +159,55 @@ export function validateRopeMovability(levelData: LevelData): string[] {
       return; // 方向无效，无法判断
     }
 
-    // 计算下一格（左下角原点，y 向上递增）
-    let nextIndex: number;
+    // 基于 indexToXY(H, MapX) 得到 (x,y)，避免左右跨行误判
+    const { x, y } = indexToXY(rope.H, MapX);
+
+    // 根据方向计算 nextX, nextY
+    let nextX: number;
+    let nextY: number;
     switch (rope.D) {
       case 1: // 上（y 增大）
-        nextIndex = rope.H + MapX;
+        nextX = x;
+        nextY = y + 1;
         break;
       case 2: // 下（y 减小）
-        nextIndex = rope.H - MapX;
+        nextX = x;
+        nextY = y - 1;
         break;
       case 3: // 右（x 增大）
-        nextIndex = rope.H + 1;
+        nextX = x + 1;
+        nextY = y;
         break;
       case 4: // 左（x 减小）
-        nextIndex = rope.H - 1;
+        nextX = x - 1;
+        nextY = y;
         break;
       default:
         return; // 无效方向
     }
 
-    // 判定是否被挡
-    // 若 nextIndex 越界（<0 或 >= MapX*MapY） => 视为"可消/可动"（不被挡）
-    if (nextIndex < 0 || nextIndex > maxIndex) {
+    // 判断 next 是否在地图外
+    // 若 nextX/nextY 超出 [0..MapX-1]/[0..MapY-1] => next 在地图外 => 可消
+    if (nextX < 0 || nextX >= MapX || nextY < 0 || nextY >= MapY) {
       movableRopes.push(ropeNum);
       return;
     }
 
-    // 在地图内：若 nextIndex 被任意 Rope 的 Index 占用 => 被挡
-    if (occupiedAll.has(nextIndex)) {
+    // next 在地图内：将 (nextX, nextY) 转为 nextIndex（逻辑坐标，左下角原点）
+    const nextIndex = nextY * MapX + nextX;
+
+    // 判断是否被占用
+    // 只要 next 被任意 Rope 占用（包含其他 Rope，也包含自身 Index 身体） => 不可消
+    if (occupied.has(nextIndex)) {
       blockedRopes.push(ropeNum);
       return;
     }
 
-    // 不被阻挡，可移动
+    // 不被阻挡，可消
     movableRopes.push(ropeNum);
   });
 
-  // 关卡级判定：如果每一条 Rope 都被挡 => 报错
+  // 关卡级判定：只有当所有 Rope 都不可消时，才报错
   if (blockedRopes.length > 0 && movableRopes.length === 0 && Rope.length > 0) {
     errors.push('初始状态所有 Rope 均被阻挡，可能全部不可消');
   }
