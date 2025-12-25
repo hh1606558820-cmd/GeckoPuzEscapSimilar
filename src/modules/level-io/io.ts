@@ -16,7 +16,8 @@
 
 import { LevelData } from '@/types/Level';
 import { indexToXY } from '@/modules/rope-visualizer/geometry';
-import { MAP_MIN, MAP_MAX } from '@/shared/constants';
+import { validateLevel } from './validators';
+import { validateLevel } from './validators';
 
 /**
  * 下载关卡 JSON 文件
@@ -170,28 +171,16 @@ export async function readLevelJson(file: File): Promise<ReadLevelResult> {
           return;
         }
 
-        // ========== 一、读取校验（必须） ==========
-        // 校验 MapX：必须是 number，范围 0~100
+        // ========== 一、字段兜底（必须） ==========
+        // 确保 MapX/MapY/Rope 存在，并做基本类型检查
         if (typeof data.MapX !== 'number' || isNaN(data.MapX)) {
           reject(new Error(`MapX 无效：必须是数字，当前为 ${data.MapX}`));
           return;
         }
-        if (data.MapX < MAP_MIN || data.MapX > MAP_MAX) {
-          reject(new Error(`MapX 无效：必须是 ${MAP_MIN}~${MAP_MAX} 之间的数字，当前为 ${data.MapX}`));
-          return;
-        }
-
-        // 校验 MapY：必须是 number，范围 0~100
         if (typeof data.MapY !== 'number' || isNaN(data.MapY)) {
           reject(new Error(`MapY 无效：必须是数字，当前为 ${data.MapY}`));
           return;
         }
-        if (data.MapY < MAP_MIN || data.MapY > MAP_MAX) {
-          reject(new Error(`MapY 无效：必须是 ${MAP_MIN}~${MAP_MAX} 之间的数字，当前为 ${data.MapY}`));
-          return;
-        }
-
-        // 校验 Rope 数组
         if (!Array.isArray(data.Rope)) {
           reject(new Error('JSON 格式错误：Rope 必须是数组'));
           return;
@@ -307,16 +296,25 @@ export async function readLevelJson(file: File): Promise<ReadLevelResult> {
           warnings.push(`以下 Rope 包含超出范围的 index 已被过滤：${invalidIndexRopes.join(', ')}`);
         }
 
-        // 构造 LevelData 对象
-        const levelData: LevelData = {
+        // 构造 LevelData 对象（先构造临时对象用于校验）
+        const tempLevelData: LevelData = {
           MapX: data.MapX,
           MapY: data.MapY,
           Rope: shouldClearRope ? [] : validRopes, // 如果是 0 尺寸地图且有 Rope，清空
         };
 
+        // ========== 二、使用 validators 进行校验 ==========
+        const validationResult = validateLevel(tempLevelData);
+        if (!validationResult.isValid) {
+          // 校验失败，返回错误信息（来自 validators，应显示 0~100）
+          reject(new Error(validationResult.errors.join('\n')));
+          return;
+        }
+
+        // ========== 三、标准化导入的关卡数据 ==========
         // 标准化导入的关卡数据，确保 D 字段符合当前编辑器规则
         // 注意：如果 MapX === 0 或 MapY === 0，normalizeImportedLevel 需要安全处理
-        const normalizedLevelData = normalizeImportedLevel(levelData);
+        const normalizedLevelData = normalizeImportedLevel(tempLevelData);
 
         // 返回结果（使用 ReadLevelResult 格式）
         resolve({

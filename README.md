@@ -116,7 +116,7 @@ level-editor/
 ### 2. 模块1：关卡地图生成 (`src/modules/map-generator/`)
 
 - **MapGeneratorPanel.tsx**: 地图生成器面板
-  - 显示和编辑 MapX/MapY（地图尺寸，范围 1~50）
+  - 显示和编辑 MapX/MapY（地图尺寸，范围 0~100）
   - 提供步进器控制地图大小
   - 显示编号规则说明
 
