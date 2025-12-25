@@ -46,10 +46,6 @@ interface GridCanvasProps {
   showRopeOverlay?: boolean;
   zoom?: number;
   onZoomChange?: (zoom: number) => void;
-  mask?: boolean[];
-  isMaskEditing?: boolean;
-  onMaskCellClick?: (index: number) => void;
-  onMaskDrag?: (startIndex: number, endIndex: number) => void;
 }
 
 export const GridCanvas: React.FC<GridCanvasProps> = ({
@@ -67,10 +63,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   showRopeOverlay = true,
   zoom = 1.0,
   onZoomChange,
-  mask = [],
-  isMaskEditing = false,
-  onMaskCellClick,
-  onMaskDrag,
 }) => {
   // 拖拽状态
   const [isDragging, setIsDragging] = useState(false);
@@ -178,12 +170,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     e.preventDefault();
     const index = getCellIndex(x, y, MapX);
 
-    // 如果处于构型编辑模式，只处理 mask
-    if (isMaskEditing && onMaskCellClick) {
-      onMaskCellClick(index);
-      return;
-    }
-
     // 如果处于 Rope 编辑模式，使用 onCellClick 回调（优先用于路径编辑）
     if (isRopeEditing && onCellClick) {
       onCellClick(index);
@@ -218,18 +204,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   ) => {
     e.preventDefault();
     const index = getCellIndex(x, y, MapX);
-
-    // 如果处于构型编辑模式，开始拖拽涂抹 mask
-    if (isMaskEditing) {
-      setIsDragging(true);
-      setDragStartIndex(index);
-      setDragEndIndex(index);
-      // 立即切换当前格子的 mask
-      if (onMaskCellClick) {
-        onMaskCellClick(index);
-      }
-      return;
-    }
 
     // 如果处于 Rope 编辑模式，不处理拖拽
     if (isRopeEditing) {
@@ -288,12 +262,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         const index = getCellIndex(x, y, MapX);
         setDragEndIndex(index);
 
-        // 如果处于构型编辑模式，处理拖拽涂抹 mask
-        if (isMaskEditing && onMaskDrag && dragStartIndex !== null) {
-          onMaskDrag(dragStartIndex, index);
-          return;
-        }
-
         // 实时更新选择（拖拽框选）
         const newSelection = handleDragSelection(
           dragStartIndex,
@@ -306,7 +274,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         onSelectionChange(newSelection);
       }
     },
-    [isDragging, dragStartIndex, MapX, MapY, selectedIndices, onSelectionChange, displayCellSize, isMaskEditing, onMaskDrag]
+    [isDragging, dragStartIndex, MapX, MapY, selectedIndices, onSelectionChange, displayCellSize]
   );
 
   // 处理鼠标抬起（结束拖拽）
@@ -341,11 +309,9 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         const index = getCellIndex(x, y, MapX);
         const isSelected = isCellSelected(index);
         const ropeClass = getRopeCellClass(index);
-        const isMasked = index >= 0 && index < mask.length && !mask[index]; // mask=false 的格子
         
         const isInDragRange =
           !isRopeEditing &&
-          !isMaskEditing &&
           dragStartIndex !== null &&
           dragEndIndex !== null &&
           (() => {
@@ -363,7 +329,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
             key={`${x}-${y}`}
             className={`grid-cell ${isSelected ? 'selected' : ''} ${
               isInDragRange && isDragging ? 'drag-range' : ''
-            } ${ropeClass} ${isMasked ? 'mask-disabled' : ''}`}
+            } ${ropeClass}`}
             style={{
               width: `${baseCellSize}px`,
               height: `${baseCellSize}px`,
@@ -466,10 +432,8 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         </div>
       )}
       <div className="canvas-hint">
-        {isMaskEditing ? (
-          <p>✓ 构型编辑模式：单击格子切换可用状态，拖拽涂抹</p>
-        ) : isRopeEditing ? (
-          <p>✓ Rope 编辑模式：在网格中按顺序点击格子编辑路径（灰色格子不可用）</p>
+        {isRopeEditing ? (
+          <p>✓ Rope 编辑模式：在网格中按顺序点击格子编辑路径</p>
         ) : (
           <p>提示：单击选择 | Ctrl+单击多选 | 拖拽框选</p>
         )}

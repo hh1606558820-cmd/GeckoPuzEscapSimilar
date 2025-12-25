@@ -16,7 +16,7 @@ import { MapGeneratorPanel } from '@/modules/map-generator/MapGeneratorPanel';
 import { GridCanvas } from '@/modules/map-generator/GridCanvas';
 import { RopeEditorPanel } from '@/modules/rope-editor/RopeEditorPanel';
 import { RopeManagerPanel } from '@/modules/rope-manager/RopeManagerPanel';
-import { filterValidIndices, getCellPosition, getCellIndex } from '@/modules/map-generator/selection';
+import { filterValidIndices } from '@/modules/map-generator/selection';
 import {
   appendPathPoint,
   undoPathPoint,
@@ -62,17 +62,7 @@ export const App: React.FC = () => {
   // 网格缩放状态
   const [zoom, setZoom] = useState<number>(1.0); // 缩放比例，默认 1.0，范围 0.5~2.0
 
-  // 构型辅助（Mask）状态
-  const [mask, setMask] = useState<boolean[]>(() => {
-    // 初始化：全部为 true（全可用）
-    return new Array(levelData.MapX * levelData.MapY).fill(true);
-  });
-  const [isMaskEditing, setIsMaskEditing] = useState<boolean>(false); // 是否处于构型编辑模式
-
-  // 关卡文件名状态
-  const [levelName, setLevelName] = useState<string>('level');
-
-  // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）和 mask（避免错位）
+  // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
     const validIndices = filterValidIndices(
       selectedIndices,
@@ -82,9 +72,6 @@ export const App: React.FC = () => {
     if (validIndices.length !== selectedIndices.length) {
       setSelectedIndices(validIndices);
     }
-    // 重置 mask 为全 true
-    const newMaskSize = levelData.MapX * levelData.MapY;
-    setMask(new Array(newMaskSize).fill(true));
   }, [levelData.MapX, levelData.MapY]);
 
   // 处理地图尺寸变更
@@ -96,7 +83,6 @@ export const App: React.FC = () => {
     }));
     // 重置选择（避免越界）
     setSelectedIndices([]);
-    // mask 会在 useEffect 中自动重置
   };
 
   // 清空关卡配置，回到初始状态
@@ -119,11 +105,6 @@ export const App: React.FC = () => {
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
     setSelectedRopeIndex(null);
-    // 重置 mask 为全 true
-    setMask(new Array(10 * 10).fill(true));
-    setIsMaskEditing(false);
-    // 重置关卡文件名
-    setLevelName('level');
   };
 
   // 处理选择变更（地图生成器用）
@@ -191,7 +172,7 @@ export const App: React.FC = () => {
       H: 0,
       Index: [],
       BendCount: 0,
-      ColorIdx: getDefaultColorIdx(), // 默认使用颜色池的默认值（-1 = 无色）
+      ColorIdx: getDefaultColorIdx(), // 默认使用颜色池的默认值（-1 = 无颜色）
     };
     const newRopeIndex = levelData.Rope.length;
     setLevelData({
@@ -226,11 +207,6 @@ export const App: React.FC = () => {
   // 处理网格点击（Rope 编辑模式）
   const handleCellClick = (index: number) => {
     if (!isRopeEditing || currentRopeIndex < 0) {
-      return;
-    }
-
-    // 检查 mask：如果 mask=false，忽略点击
-    if (index >= 0 && index < mask.length && !mask[index]) {
       return;
     }
 
@@ -333,60 +309,6 @@ export const App: React.FC = () => {
     setShowJsonPanel((prev) => !prev);
   };
 
-  // ========== 构型辅助（Mask）相关处理函数 ==========
-
-  // 切换构型编辑模式
-  const handleToggleMaskEditing = () => {
-    setIsMaskEditing((prev) => !prev);
-    // 退出构型编辑模式时，也退出 Rope 编辑模式（避免冲突）
-    if (isMaskEditing) {
-      // 正在退出构型编辑模式，不需要额外操作
-    } else {
-      // 进入构型编辑模式，退出 Rope 编辑模式
-      if (isRopeEditing) {
-        setIsRopeEditing(false);
-        setCurrentEditingPath([]);
-      }
-    }
-  };
-
-  // 处理构型编辑模式下的格子点击（切换 mask）
-  const handleMaskCellClick = (index: number) => {
-    if (!isMaskEditing || index < 0 || index >= mask.length) {
-      return;
-    }
-    const newMask = [...mask];
-    newMask[index] = !newMask[index];
-    setMask(newMask);
-  };
-
-  // 处理构型编辑模式下的拖拽涂抹
-  const handleMaskDrag = (startIndex: number, endIndex: number) => {
-    if (!isMaskEditing) {
-      return;
-    }
-    // 获取拖拽范围内的所有格子索引
-    const startPos = getCellPosition(startIndex, levelData.MapX);
-    const endPos = getCellPosition(endIndex, levelData.MapX);
-    const minX = Math.min(startPos.x, endPos.x);
-    const maxX = Math.max(startPos.x, endPos.x);
-    const minY = Math.min(startPos.y, endPos.y);
-    const maxY = Math.max(startPos.y, endPos.y);
-
-    const newMask = [...mask];
-    // 将拖拽范围内的所有格子设置为与起始格子相反的状态
-    const startValue = mask[startIndex];
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        const idx = getCellIndex(x, y, levelData.MapX);
-        if (idx >= 0 && idx < newMask.length) {
-          newMask[idx] = !startValue;
-        }
-      }
-    }
-    setMask(newMask);
-  };
-
   // ========== 关卡文件管理相关处理函数（模块6） ==========
 
   // 处理加载关卡数据（读取关卡文件后调用）
@@ -410,14 +332,10 @@ export const App: React.FC = () => {
         showJsonPanel={showJsonPanel}
         selectedRopeIndex={selectedRopeIndex}
         isEditingRopePath={isRopeEditing}
-        isMaskEditing={isMaskEditing}
-        levelName={levelName}
-        onLevelNameChange={setLevelName}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
-        onToggleMaskEditing={handleToggleMaskEditing}
       />
       
       <div className="app-layout">
@@ -467,10 +385,6 @@ export const App: React.FC = () => {
             showRopeOverlay={showRopeOverlay}
             zoom={zoom}
             onZoomChange={setZoom}
-            mask={mask}
-            isMaskEditing={isMaskEditing}
-            onMaskCellClick={handleMaskCellClick}
-            onMaskDrag={handleMaskDrag}
           />
         </div>
       </div>

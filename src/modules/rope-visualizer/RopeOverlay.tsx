@@ -3,9 +3,8 @@
  * 
  * 职责：
  * - 在网格上方叠加显示 Rope 的线段和箭头
- * - 使用 SVG 绘制线段连接相邻格子，颜色根据 ColorIdx 显示
- * - 在每条 Rope 的末端绘制箭头，颜色与线段一致
- * - 选中 Rope 时显示黑色描边高亮
+ * - 使用 SVG 绘制红色线段连接相邻格子
+ * - 在每条 Rope 的末端绘制箭头
  * 
  * 输入：
  * - levelData: LevelData - 关卡数据（包含所有 Rope）
@@ -20,7 +19,6 @@
 import React, { useMemo } from 'react';
 import { LevelData } from '@/types/Level';
 import { indexToCenter } from './geometry';
-import { getColorHexByIdx } from '@/modules/rope-color-pool/colorPool';
 import './RopeOverlay.css';
 
 // 基础线条粗细和箭头大小（视觉不变的值）
@@ -85,11 +83,8 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
 
       // 判断是否是选中的 Rope（用于高亮显示）
       const isSelected = selectedRopeIndex !== null && ropeIndex === selectedRopeIndex;
-      const currentStrokeWidth = BASE_STROKE / zoom;
-      
-      // 根据 ColorIdx 获取显示颜色
-      // ColorIdx = -1（无色）时使用默认编辑器颜色 #999999
-      const displayColor = getColorHexByIdx(rope.ColorIdx);
+      const currentStrokeWidth = isSelected ? BASE_STROKE / zoom + 1 / zoom : BASE_STROKE / zoom;
+      const strokeColor = 'red';
 
       // 将 Index 数组转换为像素坐标点（使用 baseCellSize，不乘 zoom，因为 wrapper 已整体缩放）
       const points: Array<{ cx: number; cy: number }> = rope.Index.map((index) =>
@@ -101,23 +96,7 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
         const from = points[i];
         const to = points[i + 1];
 
-        // 如果选中，先绘制描边层（黑色，更粗）
-        if (isSelected) {
-          elements.push(
-            <line
-              key={`rope-${ropeIndex}-segment-${i}-outline`}
-              x1={from.cx}
-              y1={from.cy}
-              x2={to.cx}
-              y2={to.cy}
-              stroke="#000"
-              strokeWidth={currentStrokeWidth + 2 / zoom}
-              strokeLinecap="round"
-            />
-          );
-        }
-
-        // 绘制主线段（使用 displayColor）
+        // 绘制线段
         elements.push(
           <line
             key={`rope-${ropeIndex}-segment-${i}`}
@@ -125,7 +104,7 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
             y1={from.cy}
             x2={to.cx}
             y2={to.cy}
-            stroke={displayColor}
+            stroke={strokeColor}
             strokeWidth={currentStrokeWidth}
             strokeLinecap="round"
           />
@@ -140,6 +119,9 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
         
         // 箭头方向向量：使用 rope.D
         const v = dirToScreenVec(rope.D);
+        
+        // 调试：打印方向向量
+        console.log('TEST VEC', rope.H, rope.D, v);
         
         // 箭头尺寸（视觉不变，除以 zoom）
         const L = BASE_ARROW_LENGTH / zoom; // 箭头长度
@@ -164,32 +146,24 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
         const rightX = baseX - nx * (W / 2);
         const rightY = baseY - ny * (W / 2);
         
-        // 如果选中，先绘制箭头描边层（黑色，更粗）
-        if (isSelected) {
-          // 箭头主干描边
-          elements.push(
-            <line
-              key={`rope-${ropeIndex}-arrow-stem-outline`}
-              x1={p.cx}
-              y1={p.cy}
-              x2={baseX}
-              y2={baseY}
-              stroke="#000"
-              strokeWidth={currentStrokeWidth + 2 / zoom}
-              strokeLinecap="round"
-            />
-          );
-          // 箭头三角形描边
-          elements.push(
-            <polygon
-              key={`rope-${ropeIndex}-arrow-head-outline`}
-              points={`${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`}
-              fill="#000"
-            />
-          );
-        }
+        // 调试：绘制方向测试短线（蓝色，从 p 到 p + v * (30/zoom)）
+        const debugRayLength = 30 / zoom;
+        const debugRayEndX = p.cx + v.dx * debugRayLength;
+        const debugRayEndY = p.cy + v.dy * debugRayLength;
+        elements.push(
+          <line
+            key={`rope-${ropeIndex}-debug-ray`}
+            x1={p.cx}
+            y1={p.cy}
+            x2={debugRayEndX}
+            y2={debugRayEndY}
+            stroke="blue"
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        );
         
-        // 绘制箭头主干：从 p 到 baseCenter（使用 displayColor）
+        // 绘制主干线：从 p 到 baseCenter
         elements.push(
           <line
             key={`rope-${ropeIndex}-arrow-stem`}
@@ -197,19 +171,34 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
             y1={p.cy}
             x2={baseX}
             y2={baseY}
-            stroke={displayColor}
+            stroke={strokeColor}
             strokeWidth={currentStrokeWidth}
             strokeLinecap="round"
           />
         );
         
-        // 绘制箭头头：三角形 [tip, left, right]（使用 displayColor）
+        // 绘制箭头头：三角形 [tip, left, right]
         elements.push(
           <polygon
             key={`rope-${ropeIndex}-arrow-head`}
             points={`${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`}
-            fill={displayColor}
+            fill={strokeColor}
           />
+        );
+        
+        // 临时调试显示：在头部格子中心旁显示 D 值
+        elements.push(
+          <text
+            key={`rope-${ropeIndex}-debug-d`}
+            x={p.cx + 15}
+            y={p.cy}
+            fill="blue"
+            fontSize="12"
+            fontWeight="bold"
+            style={{ pointerEvents: 'none' }}
+          >
+            D={rope.D}
+          </text>
         );
       }
     });
