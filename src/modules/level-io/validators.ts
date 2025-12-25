@@ -14,7 +14,6 @@
 
 import { LevelData } from '@/types/Level';
 import { isAdjacent } from '@/modules/rope-editor/ropeLogic';
-import { indexToXY } from '@/modules/rope-visualizer/geometry';
 
 /**
  * 校验结果接口
@@ -28,8 +27,8 @@ export interface ValidationResult {
  * Rule A：所有 Rope 的 ColorIdx 是否在有效范围内
  * 
  * 规则：
- * - ColorIdx 允许为 -1, 1~11（-1=无色，1~11=有颜色）
- * - 如果存在 ColorIdx 越界（<-1 或 >11 或 非数字）：报错 "Rope #N ColorIdx 越界"
+ * - ColorIdx 允许为 -1, 1~10（-1=无颜色，1~10=有颜色）
+ * - 如果存在 ColorIdx 越界（<-1 或 >10 或 非数字）：报错 "Rope #N ColorIdx 越界"
  * - ColorIdx=-1 是合法的，不会阻止生成
  * 
  * @param levelData 关卡数据
@@ -44,9 +43,9 @@ export function validateColorIdx(levelData: LevelData): string[] {
       errors.push(`Rope #${index + 1} ColorIdx 无效（必须是数字）`);
       return;
     }
-    // 检查是否越界（<-1 或 >11 或 在 -1 和 1 之间）
-    if (rope.ColorIdx < -1 || rope.ColorIdx > 11 || (rope.ColorIdx > -1 && rope.ColorIdx < 1)) {
-      errors.push(`Rope #${index + 1} ColorIdx 越界（允许范围：-1 或 1~11，当前值：${rope.ColorIdx}）`);
+    // 检查是否越界（<-1 或 >10 或 在 -1 和 1 之间）
+    if (rope.ColorIdx < -1 || rope.ColorIdx > 10 || (rope.ColorIdx > -1 && rope.ColorIdx < 1)) {
+      errors.push(`Rope #${index + 1} ColorIdx 越界（允许范围：-1 或 1~10，当前值：${rope.ColorIdx}）`);
     }
   });
 
@@ -207,83 +206,6 @@ export function validateRopeMovability(levelData: LevelData): string[] {
 }
 
 /**
- * Rule D：检测轴方向冲突
- * 
- * 规则A（列冲突）：
- * - 同一 X（同一列）上，只要存在任意 Rope 的任意一个 Index 格子：
- *   同时出现 D=3（右） 和 D=4（左）
- * - 即判定为冲突，禁止生成关卡
- * 
- * 规则B（行冲突）：
- * - 同一 Y（同一行）上，只要存在任意 Rope 的任意一个 Index 格子：
- *   同时出现 D=1（上） 和 D=2（下）
- * - 即判定为冲突，禁止生成关卡
- * 
- * 说明：
- * - 遍历每条 Rope 的所有 Index 格子（不仅仅是头部 H）
- * - 使用 indexToXY(index, MapX) 得到 (x,y)，注意该函数应是逻辑坐标（左下角原点，y向上）
- * 
- * @param levelData 关卡数据
- * @returns 错误信息数组
- */
-export function checkAxisDirectionConflicts(levelData: LevelData): string[] {
-  const errors: string[] = [];
-  const { MapX, Rope } = levelData;
-
-  // 列冲突检测：columnDirMap[x] = Set<Direction>
-  const columnDirMap = new Map<number, Set<number>>();
-  
-  // 行冲突检测：rowDirMap[y] = Set<Direction>
-  const rowDirMap = new Map<number, Set<number>>();
-
-  // 遍历所有 rope，遍历每条 rope 的所有 Index 格子
-  Rope.forEach((rope) => {
-    // 如果方向 D 无效，跳过
-    if (rope.D === 0 || rope.D < 1 || rope.D > 4) {
-      return;
-    }
-
-    // 遍历 rope.Index 中的每一个 index
-    rope.Index.forEach((index) => {
-      // 使用 indexToXY 得到 (x, y)
-      const { x, y } = indexToXY(index, MapX);
-
-      // 处理列冲突（D=3 或 D=4）
-      if (rope.D === 3 || rope.D === 4) {
-        if (!columnDirMap.has(x)) {
-          columnDirMap.set(x, new Set());
-        }
-        columnDirMap.get(x)!.add(rope.D);
-      }
-
-      // 处理行冲突（D=1 或 D=2）
-      if (rope.D === 1 || rope.D === 2) {
-        if (!rowDirMap.has(y)) {
-          rowDirMap.set(y, new Set());
-        }
-        rowDirMap.get(y)!.add(rope.D);
-      }
-    });
-  });
-
-  // 检测列冲突：若 columnDirMap[x] 同时包含 3 和 4 => 报错
-  columnDirMap.forEach((directions, x) => {
-    if (directions.has(3) && directions.has(4)) {
-      errors.push(`列冲突（左右冲突）：第 x=${x} 列上同时存在方向 D=3（右）和 D=4（左）的 Rope`);
-    }
-  });
-
-  // 检测行冲突：若 rowDirMap[y] 同时包含 1 和 2 => 报错
-  rowDirMap.forEach((directions, y) => {
-    if (directions.has(1) && directions.has(2)) {
-      errors.push(`行冲突（上下冲突）：第 y=${y} 行上同时存在方向 D=1（上）和 D=2（下）的 Rope`);
-    }
-  });
-
-  return errors;
-}
-
-/**
  * 执行所有校验规则
  * 
  * @param levelData 关卡数据
@@ -298,10 +220,7 @@ export function validateLevel(levelData: LevelData): ValidationResult {
   // Rule B：校验路径
   errors.push(...validateRopePaths(levelData));
 
-  // Rule D：校验轴方向冲突
-  errors.push(...checkAxisDirectionConflicts(levelData));
-
-  // Rule C：校验可移动性（仅在 Rule A、Rule B 和 Rule D 通过时检查）
+  // Rule C：校验可移动性（仅在 Rule A 和 Rule B 通过时检查）
   if (errors.length === 0) {
     errors.push(...validateRopeMovability(levelData));
   }

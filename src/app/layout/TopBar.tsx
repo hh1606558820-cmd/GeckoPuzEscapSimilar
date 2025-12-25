@@ -18,10 +18,11 @@
  * - 渲染顶部栏 UI
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
+import { ValidationModal } from './ValidationModal';
 import './layout.css';
 
 interface TopBarProps {
@@ -56,6 +57,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleMaskEditing,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   /**
    * 清理文件名：移除非法字符
@@ -82,14 +85,10 @@ export const TopBar: React.FC<TopBarProps> = ({
     return sanitized;
   };
 
-  // 处理生成关卡
-  const handleGenerate = () => {
-    const result = validateLevel(levelData);
-    if (!result.isValid) {
-      const errorMessage = result.errors.join('\n');
-      alert(`关卡校验失败：\n\n${errorMessage}\n\n请修复后重试。`);
-      return;
-    }
+  /**
+   * 执行生成关卡文件（跳过校验）
+   */
+  const generateLevelFile = () => {
     try {
       // 清理文件名并生成最终文件名
       const sanitizedName = sanitizeFileName(levelName);
@@ -100,6 +99,30 @@ export const TopBar: React.FC<TopBarProps> = ({
       alert('生成文件失败，请重试。');
       console.error('生成文件失败:', error);
     }
+  };
+
+  // 处理生成关卡
+  const handleGenerate = () => {
+    const result = validateLevel(levelData);
+    if (!result.isValid) {
+      // 校验失败，显示确认弹窗
+      setValidationErrors(result.errors);
+      setShowValidationModal(true);
+      return;
+    }
+    // 校验通过，直接生成
+    generateLevelFile();
+  };
+
+  // 处理忽略校验并生成
+  const handleIgnoreValidation = () => {
+    setShowValidationModal(false);
+    generateLevelFile();
+  };
+
+  // 处理取消
+  const handleCancelValidation = () => {
+    setShowValidationModal(false);
   };
 
   // 处理读取关卡
@@ -192,6 +215,13 @@ export const TopBar: React.FC<TopBarProps> = ({
           style={{ display: 'none' }}
         />
       </div>
+      {showValidationModal && (
+        <ValidationModal
+          errors={validationErrors}
+          onConfirm={handleIgnoreValidation}
+          onCancel={handleCancelValidation}
+        />
+      )}
     </header>
   );
 };

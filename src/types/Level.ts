@@ -63,7 +63,7 @@ export interface RopeData {
   H: number;              // 终点（Index[Index.length - 1] 或 0）
   Index: number[];        // 路径索引数组（按点击顺序）
   BendCount: number;      // 拐弯次数
-  ColorIdx: number;       // 颜色索引（-1=无色，1~11=颜色池中的颜色）
+  ColorIdx: number;       // 颜色索引（-1=无颜色，1~10=颜色池中的颜色）
 }
 
 /**
