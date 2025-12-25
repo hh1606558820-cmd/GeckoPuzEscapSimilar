@@ -142,9 +142,17 @@ export const TopBar: React.FC<TopBarProps> = ({
     }
 
     try {
-      const loadedLevelData = await readLevelJson(file);
-      onLevelDataLoad(loadedLevelData);
-      alert('关卡文件读取成功！');
+      const result = await readLevelJson(file);
+      
+      // 如果有警告信息，先显示警告
+      if (result.warnings.length > 0) {
+        const warningMessage = result.warnings.join('\n');
+        alert(`关卡文件读取成功，但有警告：\n\n${warningMessage}`);
+      } else {
+        alert('关卡文件读取成功！');
+      }
+      
+      onLevelDataLoad(result.levelData);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '未知错误';
       alert(`读取关卡文件失败：\n\n${errorMessage}\n\n请检查文件格式是否正确。`);
