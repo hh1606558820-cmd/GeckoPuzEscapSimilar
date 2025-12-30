@@ -30,6 +30,7 @@ import { getDefaultColorIdx } from '@/modules/rope-color-pool';
 import { TopBar } from './layout/TopBar';
 import { ResizableSidebar } from './layout/ResizableSidebar';
 import { RightJsonPanel } from './layout/RightJsonPanel';
+import { AutoFillDialog, autoFillIrregular, type AutoFillConfig } from '@/modules/auto-fill';
 import './App.css';
 import './layout/layout.css';
 
@@ -61,6 +62,9 @@ export const App: React.FC = () => {
 
   // 网格缩放状态
   const [zoom, setZoom] = useState<number>(1.0); // 缩放比例，默认 1.0，范围 0.5~2.0
+
+  // 自动填充相关状态
+  const [showAutoFillDialog, setShowAutoFillDialog] = useState<boolean>(false);
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -123,6 +127,12 @@ export const App: React.FC = () => {
 
   // 处理编辑模式切换
   const handleEditModeToggle = () => {
+    // 如果 MapX === 0 或 MapY === 0，不允许进入 Rope 编辑模式
+    if (levelData.MapX === 0 || levelData.MapY === 0) {
+      alert('地图尺寸为 0 时不能进入 Rope 编辑模式');
+      return;
+    }
+
     if (currentRopeIndex < 0) {
       alert('请先选择一个 Rope');
       return;
@@ -167,6 +177,12 @@ export const App: React.FC = () => {
 
   // 处理添加新 Rope
   const handleRopeAdd = () => {
+    // 如果 MapX === 0 或 MapY === 0，不允许添加 Rope
+    if (levelData.MapX === 0 || levelData.MapY === 0) {
+      alert('地图尺寸为 0 时不能添加 Rope');
+      return;
+    }
+
     const newRope: RopeData = {
       D: 0,
       H: 0,
@@ -206,6 +222,11 @@ export const App: React.FC = () => {
 
   // 处理网格点击（Rope 编辑模式）
   const handleCellClick = (index: number) => {
+    // 如果 MapX === 0 或 MapY === 0，不执行逻辑
+    if (levelData.MapX === 0 || levelData.MapY === 0) {
+      return;
+    }
+
     if (!isRopeEditing || currentRopeIndex < 0) {
       return;
     }
@@ -324,6 +345,52 @@ export const App: React.FC = () => {
     setCurrentEditingPath([]);
   };
 
+  // ========== 自动填充相关处理函数 ==========
+
+  // 打开自动填充弹窗
+  const handleOpenAutoFill = () => {
+    // 检查是否有构型（selectedIndices）
+    if (selectedIndices.length === 0) {
+      alert('请先编辑构型（选择可用格子），然后再使用自动填充功能。');
+      return;
+    }
+    setShowAutoFillDialog(true);
+  };
+
+  // 处理自动填充生成
+  const handleAutoFillGenerate = (config: AutoFillConfig) => {
+    // 将 selectedIndices 转换为 Set（shapeMask）
+    const shapeMask = new Set(selectedIndices);
+    
+    // 调用自动填充算法
+    const result = autoFillIrregular(
+      shapeMask,
+      config.overwriteExisting ? [] : levelData.Rope,
+      levelData.MapX,
+      levelData.MapY,
+      config
+    );
+
+    // 处理错误
+    if (result.errors.length > 0) {
+      alert(`自动填充失败：\n\n${result.errors.join('\n')}`);
+      return;
+    }
+
+    // 更新 levelData
+    setLevelData({
+      ...levelData,
+      Rope: result.ropes,
+    });
+
+    // 显示警告（如果有）
+    if (result.warnings.length > 0) {
+      alert(`自动填充完成：\n\n${result.warnings.join('\n')}`);
+    } else {
+      alert(`自动填充完成！生成了 ${result.ropes.length} 条 Rope。`);
+    }
+  };
+
   return (
     <div className="app">
       <TopBar
@@ -336,6 +403,7 @@ export const App: React.FC = () => {
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
+        onOpenAutoFill={handleOpenAutoFill}
       />
       
       <div className="app-layout">
@@ -397,6 +465,13 @@ export const App: React.FC = () => {
           topBarHeight={60}
         />
       )}
+
+      {/* 自动填充弹窗 */}
+      <AutoFillDialog
+        isOpen={showAutoFillDialog}
+        onClose={() => setShowAutoFillDialog(false)}
+        onGenerate={handleAutoFillGenerate}
+      />
     </div>
   );
 };
