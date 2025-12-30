@@ -19,6 +19,7 @@
 import React, { useMemo } from 'react';
 import { LevelData } from '@/types/Level';
 import { indexToCenter } from './geometry';
+import { getRopeColor } from '@/shared/ropeColors';
 import './RopeOverlay.css';
 
 // 基础线条粗细和箭头大小（视觉不变的值）
@@ -63,6 +64,11 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
   showRopeOverlay,
   selectedRopeIndex = null,
 }) => {
+  // 如果 MapX === 0 或 MapY === 0，不渲染 overlay
+  if (levelData.MapX === 0 || levelData.MapY === 0) {
+    return null;
+  }
+
   // 计算 SVG 的宽高（使用 baseCellSize，不乘 zoom，因为 wrapper 已整体缩放）
   const svgWidth = levelData.MapX * cellSize;
   const svgHeight = levelData.MapY * cellSize;
@@ -84,7 +90,9 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
       // 判断是否是选中的 Rope（用于高亮显示）
       const isSelected = selectedRopeIndex !== null && ropeIndex === selectedRopeIndex;
       const currentStrokeWidth = isSelected ? BASE_STROKE / zoom + 1 / zoom : BASE_STROKE / zoom;
-      const strokeColor = 'red';
+      
+      // 根据 ColorIdx 获取颜色
+      const { stroke: strokeColor } = getRopeColor(rope.ColorIdx);
 
       // 将 Index 数组转换为像素坐标点（使用 baseCellSize，不乘 zoom，因为 wrapper 已整体缩放）
       const points: Array<{ cx: number; cy: number }> = rope.Index.map((index) =>
