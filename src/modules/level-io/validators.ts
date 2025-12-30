@@ -14,6 +14,7 @@
 
 import { LevelData } from '@/types/Level';
 import { isAdjacent } from '@/modules/rope-editor/ropeLogic';
+import { MAP_MIN, MAP_MAX } from '@/shared/constants';
 
 /**
  * 校验结果接口
@@ -69,6 +70,12 @@ export function validateColorIdx(levelData: LevelData): string[] {
 export function validateRopePaths(levelData: LevelData): string[] {
   const errors: string[] = [];
   const { MapX, MapY, Rope } = levelData;
+  
+  // 如果 MapX 或 MapY 为 0，无法计算 maxIndex，直接返回
+  if (MapX === 0 || MapY === 0) {
+    return errors;
+  }
+  
   const maxIndex = MapX * MapY - 1;
 
   Rope.forEach((rope, ropeIndex) => {
@@ -134,6 +141,12 @@ export function validateRopePaths(levelData: LevelData): string[] {
 export function validateRopeMovability(levelData: LevelData): string[] {
   const errors: string[] = [];
   const { MapX, MapY, Rope } = levelData;
+  
+  // 如果 MapX 或 MapY 为 0，无法计算 maxIndex，直接返回
+  if (MapX === 0 || MapY === 0) {
+    return errors;
+  }
+  
   const maxIndex = MapX * MapY - 1;
 
   // 预先构建占用集合，包含所有 Rope 的所有 Index
@@ -206,6 +219,34 @@ export function validateRopeMovability(levelData: LevelData): string[] {
 }
 
 /**
+ * 校验 MapX 和 MapY 的范围
+ * 
+ * @param levelData 关卡数据
+ * @returns 错误信息数组
+ */
+export function validateMapSize(levelData: LevelData): string[] {
+  const errors: string[] = [];
+  const { MapX, MapY, Rope } = levelData;
+
+  // 校验 MapX 范围
+  if (typeof MapX !== 'number' || MapX < MAP_MIN || MapX > MAP_MAX) {
+    errors.push(`MapX 无效：必须是 ${MAP_MIN}~${MAP_MAX} 之间的数字，当前为 ${MapX}`);
+  }
+
+  // 校验 MapY 范围
+  if (typeof MapY !== 'number' || MapY < MAP_MIN || MapY > MAP_MAX) {
+    errors.push(`MapY 无效：必须是 ${MAP_MIN}~${MAP_MAX} 之间的数字，当前为 ${MapY}`);
+  }
+
+  // 如果 MapX === 0 或 MapY === 0，检查 Rope 数量
+  if ((MapX === 0 || MapY === 0) && Rope.length > 0) {
+    errors.push('地图尺寸为 0 时不能配置 Rope');
+  }
+
+  return errors;
+}
+
+/**
  * 执行所有校验规则
  * 
  * @param levelData 关卡数据
@@ -214,14 +255,19 @@ export function validateRopeMovability(levelData: LevelData): string[] {
 export function validateLevel(levelData: LevelData): ValidationResult {
   const errors: string[] = [];
 
+  // 首先校验 MapX/MapY 范围
+  errors.push(...validateMapSize(levelData));
+
   // Rule A：校验颜色
   errors.push(...validateColorIdx(levelData));
 
-  // Rule B：校验路径
-  errors.push(...validateRopePaths(levelData));
+  // Rule B：校验路径（仅在 MapX > 0 且 MapY > 0 时检查）
+  if (levelData.MapX > 0 && levelData.MapY > 0) {
+    errors.push(...validateRopePaths(levelData));
+  }
 
   // Rule C：校验可移动性（仅在 Rule A 和 Rule B 通过时检查）
-  if (errors.length === 0) {
+  if (errors.length === 0 && levelData.MapX > 0 && levelData.MapY > 0) {
     errors.push(...validateRopeMovability(levelData));
   }
 

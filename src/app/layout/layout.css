@@ -46,33 +46,6 @@
 .top-bar-right {
   display: flex;
   gap: 12px;
-  align-items: center;
-}
-
-.top-bar-level-name-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.top-bar-level-name-label {
-  font-size: 14px;
-  color: #666;
-  white-space: nowrap;
-}
-
-.top-bar-level-name-input-field {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  width: 150px;
-  transition: border-color 0.2s;
-}
-
-.top-bar-level-name-input-field:focus {
-  outline: none;
-  border-color: #2196f3;
 }
 
 .top-bar-btn {
@@ -91,16 +64,6 @@
 
 .top-bar-btn:active {
   background-color: #e0e0e0;
-}
-
-.top-bar-btn.active {
-  background-color: #2196f3;
-  color: white;
-  border-color: #1976d2;
-}
-
-.top-bar-btn.active:hover {
-  background-color: #1976d2;
 }
 
 /* 可拖拽侧边栏样式 */

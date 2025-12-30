@@ -14,4 +14,3 @@
  */
 export const MAP_MIN = 0;   // 地图最小尺寸
 export const MAP_MAX = 100; // 地图最大尺寸
-

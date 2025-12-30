@@ -17,7 +17,6 @@
 import { LevelData } from '@/types/Level';
 import { indexToXY } from '@/modules/rope-visualizer/geometry';
 import { validateLevel } from './validators';
-import { validateLevel } from './validators';
 
 /**
  * 下载关卡 JSON 文件
@@ -102,11 +101,31 @@ function oppositeDirection(dir: number): number {
  * @returns 标准化后的关卡数据
  */
 function normalizeImportedLevel(levelData: LevelData): LevelData {
+  // 如果 MapX === 0 或 MapY === 0，Rope 应该为空，直接返回
+  if (levelData.MapX === 0 || levelData.MapY === 0) {
+    return {
+      ...levelData,
+      Rope: [],
+    };
+  }
+
+  // 确保 MapX > 0 才进行方向计算
+  if (levelData.MapX <= 0) {
+    return {
+      ...levelData,
+      Rope: levelData.Rope.map((rope) => ({
+        ...rope,
+        D: 0, // 无效方向
+      })),
+    };
+  }
+
   const normalizedRopes = levelData.Rope.map((rope) => {
     // 标准化 D 字段
     let normalizedD = rope.D;
     if (rope.Index.length >= 2) {
       // 计算第一段方向：Index[0] -> Index[1]
+      // 确保 MapX > 0（已在函数开头检查）
       const firstDir = directionFromTwoIndices(rope.Index[0], rope.Index[1], levelData.MapX);
       
       if (firstDir !== 0) {
@@ -208,6 +227,10 @@ export async function readLevelJson(file: File): Promise<ReadLevelResult> {
         for (let i = 0; i < data.Rope.length; i++) {
           const rope = data.Rope[i];
           const ropeNum = i + 1;
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
           if (typeof rope !== 'object' || rope === null) {
             reject(new Error(`Rope #${ropeNum} 格式错误：必须是对象`));
             return;
@@ -316,7 +339,11 @@ export async function readLevelJson(file: File): Promise<ReadLevelResult> {
         // 注意：如果 MapX === 0 或 MapY === 0，normalizeImportedLevel 需要安全处理
         const normalizedLevelData = normalizeImportedLevel(tempLevelData);
 
+<<<<<<< Updated upstream
         // 返回结果（使用 ReadLevelResult 格式）
+=======
+        // 返回结果
+>>>>>>> Stashed changes
         resolve({
           levelData: normalizedLevelData,
           warnings,
