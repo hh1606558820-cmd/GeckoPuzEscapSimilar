@@ -18,11 +18,39 @@
  * - 渲染顶部栏 UI
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
 import './layout.css';
+
+/**
+ * 清理文件名：去除非法字符
+ * - trim
+ * - 替换 / \ : * ? " < > | 为 _
+ * - 把连续下划线合并
+ * - 长度>50截断
+ */
+function sanitizeFilename(name: string): string {
+  // trim
+  let sanitized = name.trim();
+  
+  // 替换非法字符为下划线
+  sanitized = sanitized.replace(/[/\\:*?"<>|]/g, '_');
+  
+  // 把连续下划线合并为一个
+  sanitized = sanitized.replace(/_+/g, '_');
+  
+  // 去除首尾下划线
+  sanitized = sanitized.replace(/^_+|_+$/g, '');
+  
+  // 长度>50截断
+  if (sanitized.length > 50) {
+    sanitized = sanitized.substring(0, 50);
+  }
+  
+  return sanitized;
+}
 
 interface TopBarProps {
   levelData: LevelData;
@@ -54,6 +82,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleMaskEditing,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [levelName, setLevelName] = useState<string>('level');
 
   // 处理生成关卡
   const handleGenerate = () => {
@@ -64,7 +93,11 @@ export const TopBar: React.FC<TopBarProps> = ({
       return;
     }
     try {
-      downloadLevelJson(levelData);
+      // 清理文件名
+      const safeName = sanitizeFilename(levelName);
+      const finalName = (safeName || 'level') + '.json';
+      
+      downloadLevelJson(levelData, finalName);
       alert('关卡文件已成功生成并下载！');
     } catch (error) {
       alert('生成文件失败，请重试。');
@@ -128,6 +161,17 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
       <div className="top-bar-right">
+        <div className="top-bar-input-group">
+          <label htmlFor="level-name-input" className="top-bar-label">关卡名：</label>
+          <input
+            id="level-name-input"
+            type="text"
+            className="top-bar-input"
+            value={levelName}
+            onChange={(e) => setLevelName(e.target.value)}
+            placeholder="level"
+          />
+        </div>
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>
