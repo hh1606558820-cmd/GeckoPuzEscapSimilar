@@ -30,11 +30,13 @@ interface TopBarProps {
   showJsonPanel: boolean;
   selectedRopeIndex: number | null;
   isEditingRopePath: boolean;
+  isMaskEditing: boolean;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
   onClearLevel: () => void;
   onOpenAutoFill: () => void;
+  onToggleMaskEditing: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -43,11 +45,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   showJsonPanel,
   selectedRopeIndex,
   isEditingRopePath,
+  isMaskEditing,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
   onClearLevel,
   onOpenAutoFill,
+  onToggleMaskEditing,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,11 +122,17 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="top-bar-status">
             编辑模式: {isEditingRopePath ? '编辑中' : '非编辑'}
           </span>
+          <span className="top-bar-status">
+            构型模式: {isMaskEditing ? '构型编辑' : '普通模式'}
+          </span>
         </div>
       </div>
       <div className="top-bar-right">
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
+        </button>
+        <button className="top-bar-btn" onClick={onToggleMaskEditing}>
+          编辑构型
         </button>
         <button className="top-bar-btn" onClick={onOpenAutoFill}>
           自动填充

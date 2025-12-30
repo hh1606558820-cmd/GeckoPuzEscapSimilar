@@ -1,5 +1,10 @@
 .rope-overlay {
   /* SVG overlay 样式 */
   z-index: 10; /* 确保在网格上方，但在交互元素下方 */
+  pointer-events: none; /* 不拦截鼠标事件，让点击穿透到网格层 */
+}
+
+.rope-overlay * {
+  pointer-events: none; /* 确保所有子元素也不拦截事件 */
 }
 

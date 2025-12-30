@@ -45,6 +45,10 @@ export const App: React.FC = () => {
   // 编辑器内部状态：选中的格子索引数组（地图生成器用）
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
+  // 构型编辑相关状态（独立于普通选择）
+  const [maskIndices, setMaskIndices] = useState<number[]>([]);
+  const [isMaskEditing, setIsMaskEditing] = useState<boolean>(false);
+
   // Rope 编辑相关状态（模块2）
   const [currentRopeIndex, setCurrentRopeIndex] = useState<number>(-1); // -1 表示未选择
   const [isRopeEditing, setIsRopeEditing] = useState<boolean>(false);
@@ -65,6 +69,7 @@ export const App: React.FC = () => {
 
   // 自动填充相关状态
   const [showAutoFillDialog, setShowAutoFillDialog] = useState<boolean>(false);
+
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -105,10 +110,12 @@ export const App: React.FC = () => {
 
     // 清空 UI 状态
     setSelectedIndices([]);
+    setMaskIndices([]);
     setCurrentRopeIndex(-1);
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
     setSelectedRopeIndex(null);
+    setIsMaskEditing(false);
   };
 
   // 处理选择变更（地图生成器用）
@@ -159,6 +166,10 @@ export const App: React.FC = () => {
       setCurrentEditingPath([]);
     } else {
       // 开始编辑：初始化编辑路径为当前 Rope 的路径
+      // 如果正在构型编辑模式，先退出构型编辑模式
+      if (isMaskEditing) {
+        setIsMaskEditing(false);
+      }
       const currentRope = levelData.Rope[currentRopeIndex];
       setCurrentEditingPath([...currentRope.Index]);
       setIsRopeEditing(true);
@@ -228,6 +239,11 @@ export const App: React.FC = () => {
     }
 
     if (!isRopeEditing || currentRopeIndex < 0) {
+      return;
+    }
+
+    // 构型限制：构型外格子不可参与 Rope 编辑（仅在退出构型编辑模式且 maskIndices 不为空时）
+    if (!isMaskEditing && maskIndices.length > 0 && !maskIndices.includes(index)) {
       return;
     }
 
@@ -339,18 +355,58 @@ export const App: React.FC = () => {
 
     // 清空所有选择状态（避免脏状态）
     setSelectedIndices([]);
+    setMaskIndices([]);
     setSelectedRopeIndex(null);
     setCurrentRopeIndex(-1);
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
+    setIsMaskEditing(false);
+  };
+
+  // ========== 构型编辑相关处理函数 ==========
+
+  // 切换构型编辑模式
+  const handleToggleMaskEditing = () => {
+    // 如果 MapX === 0 或 MapY === 0，不允许进入构型编辑模式
+    if (levelData.MapX === 0 || levelData.MapY === 0) {
+      alert('地图尺寸为 0 时不能进入构型编辑模式');
+      return;
+    }
+    if (isMaskEditing) {
+      // 退出构型编辑模式
+      setIsMaskEditing(false);
+    } else {
+      // 进入构型编辑模式：如果正在编辑 Rope，先退出 Rope 编辑模式
+      if (isRopeEditing) {
+        // 结束编辑：保存路径到 Rope
+        const currentRope = levelData.Rope[currentRopeIndex];
+        const updatedRope = calculateRopeFields(
+          currentEditingPath,
+          levelData.MapX,
+          currentRope
+        );
+
+        const newRopes = [...levelData.Rope];
+        newRopes[currentRopeIndex] = updatedRope;
+
+        setLevelData({
+          ...levelData,
+          Rope: newRopes,
+        });
+
+        setIsRopeEditing(false);
+        setCurrentEditingPath([]);
+      }
+      setIsMaskEditing(true);
+    }
   };
 
   // ========== 自动填充相关处理函数 ==========
 
   // 打开自动填充弹窗
   const handleOpenAutoFill = () => {
-    // 检查是否有构型（selectedIndices）
-    if (selectedIndices.length === 0) {
+    // 检查是否有构型（maskIndices）
+    if (maskIndices.length === 0) {
       alert('请先编辑构型（选择可用格子），然后再使用自动填充功能。');
       return;
     }
@@ -359,8 +415,8 @@ export const App: React.FC = () => {
 
   // 处理自动填充生成
   const handleAutoFillGenerate = (config: AutoFillConfig) => {
-    // 将 selectedIndices 转换为 Set（shapeMask）
-    const shapeMask = new Set(selectedIndices);
+    // 将 maskIndices 转换为 Set（shapeMask）
+    const shapeMask = new Set(maskIndices);
     
     // 调用自动填充算法
     const result = autoFillIrregular(
@@ -399,11 +455,13 @@ export const App: React.FC = () => {
         showJsonPanel={showJsonPanel}
         selectedRopeIndex={selectedRopeIndex}
         isEditingRopePath={isRopeEditing}
+        isMaskEditing={isMaskEditing}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
         onOpenAutoFill={handleOpenAutoFill}
+        onToggleMaskEditing={handleToggleMaskEditing}
       />
       
       <div className="app-layout">
@@ -446,6 +504,9 @@ export const App: React.FC = () => {
             allRopes={levelData.Rope}
             currentEditingPath={currentEditingPath}
             isRopeEditing={isRopeEditing}
+            isMaskEditing={isMaskEditing}
+            maskIndices={maskIndices}
+            onMaskChange={setMaskIndices}
             onCellClick={handleCellClick}
             selectedRopeIndex={selectedRopeIndex}
             onRopeHit={handleRopeHit}

@@ -195,16 +195,60 @@ function checkAtLeastOneMovable(ropes: RopeData[], MapX: number, MapY: number): 
 }
 
 /**
- * 计算最终朝向 D（最后两格的方向）
- * D = 最后一段移动方向（Index[last-1] -> Index[last]）
+ * 计算头部朝向 D（第一段移动方向的反方向）
+ * D = dirFrom(Index[0], Index[1]) 的反方向
+ * 若 Index.length < 2，返回 0（无效）
  */
-function calculateFinalDirection(path: number[], MapX: number): number {
+function calculateHeadDirection(path: number[], MapX: number): number {
   if (path.length < 2) {
     return 0; // 无效
   }
-  const lastIndex = path.length - 1;
-  const dir = calculateDirection(path[lastIndex - 1], path[lastIndex], MapX);
-  return dir === Direction.Invalid ? 0 : dir;
+  const firstSegmentDir = calculateDirection(path[0], path[1], MapX);
+  if (firstSegmentDir === Direction.Invalid) {
+    return 0;
+  }
+  // D = 头部朝向 = 第一段移动方向的反方向
+  // 1上 ↔ 2下，3右 ↔ 4左
+  switch (firstSegmentDir) {
+    case Direction.Up:
+      return Direction.Down; // 向上移动，头部朝下
+    case Direction.Down:
+      return Direction.Up; // 向下移动，头部朝上
+    case Direction.Right:
+      return Direction.Left; // 向右移动，头部朝左
+    case Direction.Left:
+      return Direction.Right; // 向左移动，头部朝右
+    default:
+      return 0;
+  }
+}
+
+/**
+ * 检查路径是否存在回头（A→B→A）
+ * 存在 i>=2 时 Index[i] === Index[i-2] => 回头
+ */
+function hasUTurn(path: number[]): boolean {
+  if (path.length < 3) {
+    return false;
+  }
+  for (let i = 2; i < path.length; i++) {
+    if (path[i] === path[i - 2]) {
+      return true; // 回头
+    }
+  }
+  return false;
+}
+
+/**
+ * 检查头部方向是否与第一步方向一致
+ * dirFrom(Index[0], Index[1]) 的反方向必须等于 D
+ */
+function hasHeadTurn(path: number[], D: number, MapX: number): boolean {
+  if (path.length < 2) {
+    return true; // 长度不足，视为失败
+  }
+  const expectedD = calculateHeadDirection(path, MapX);
+  return expectedD !== D;
 }
 
 /**
@@ -214,9 +258,10 @@ function reverseRope(rope: RopeData, MapX: number): RopeData {
   const reversedIndex = [...rope.Index].reverse();
   // 重新计算所有字段
   const reversedRope = calculateRopeFields(reversedIndex, MapX, { ColorIdx: rope.ColorIdx });
-  // 但 D 应该是最终朝向（最后两格的方向），而不是第一段的反方向
-  // 所以需要重新计算 D
-  reversedRope.D = calculateFinalDirection(reversedIndex, MapX);
+  // Normalize: H = Index[0]
+  reversedRope.H = reversedIndex[0];
+  // Normalize: D = dirFrom(Index[0], Index[1]) 的反方向
+  reversedRope.D = calculateHeadDirection(reversedIndex, MapX);
   return reversedRope;
 }
 
@@ -367,15 +412,18 @@ export function autoFillIrregular(
       // 获取当前格子的邻居
       const neighbors = getNeighbors(current, MapX, MapY);
       
-      // 筛选候选：在 shape 内、未被占用、不是上一格、通过 no2x2Loop 检查
+      // 筛选候选：在 shape 内、未被占用、不是上一格（禁止回头）、通过 no2x2Loop 检查
       const candidates: number[] = [];
+      const prevIndex = path.length >= 2 ? path[path.length - 2] : null; // 上一格（prevIndex）
       for (const neighbor of neighbors) {
         // 在 shape 内
         if (!availableCells.has(neighbor)) continue;
         // 未被占用
         if (tempOccupied.has(neighbor)) continue;
-        // 不是上一格（禁止回头）
-        if (path.length > 0 && neighbor === path[path.length - 1]) continue;
+        // 禁止回头：nextIndex 不得等于 prevIndex
+        if (prevIndex !== null && neighbor === prevIndex) continue;
+        // 禁止重复格子：nextIndex 不得出现在 pathSet
+        if (path.includes(neighbor)) continue;
         // 通过 no2x2Loop 检查
         if (!no2x2Loop(current, neighbor, path, tempOccupied, MapX, MapY)) continue;
         
@@ -455,10 +503,28 @@ export function autoFillIrregular(
       continue;
     }
     
-    // 生成 Rope
+    // 生成 Rope 并 normalize
+    // 保证 H = Index[0]
+    // 保证 D = dirFrom(Index[0], Index[1]) 的反方向
     const rope = calculateRopeFields(path, MapX, { ColorIdx: -1 });
-    // 修正 D：应该是最终朝向（最后两格的方向），而不是第一段的反方向
-    rope.D = calculateFinalDirection(path, MapX);
+    // Normalize: H = Index[0]
+    rope.H = path[0];
+    // Normalize: D = dirFrom(Index[0], Index[1]) 的反方向
+    rope.D = calculateHeadDirection(path, MapX);
+
+    // 额外检查：回头检测
+    if (hasUTurn(path)) {
+      // 回滚占用并将 start 标记为"失败起点"
+      failedStarts.add(start);
+      continue;
+    }
+
+    // 额外检查：头转弯检测
+    if (hasHeadTurn(path, rope.D, MapX)) {
+      // 回滚占用并将 start 标记为"失败起点"
+      failedStarts.add(start);
+      continue;
+    }
     result.ropes.push(rope);
     
     // 占用 path 中格子，从 unusedCells 移除
