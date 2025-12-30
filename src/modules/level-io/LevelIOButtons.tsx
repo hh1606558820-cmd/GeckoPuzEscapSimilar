@@ -77,12 +77,18 @@ export const LevelIOButtons: React.FC<LevelIOButtonsProps> = ({
 
     try {
       // 读取并解析文件
-      const loadedLevelData = await readLevelJson(file);
+      const result = await readLevelJson(file);
+      
+      // 如果有警告信息，先显示警告
+      if (result.warnings.length > 0) {
+        const warningMessage = result.warnings.join('\n');
+        alert(`关卡文件读取成功，但有警告：\n\n${warningMessage}`);
+      } else {
+        alert('关卡文件读取成功！');
+      }
       
       // 加载成功，通知父组件
-      onLevelDataLoad(loadedLevelData);
-      
-      alert('关卡文件读取成功！');
+      onLevelDataLoad(result.levelData);
     } catch (error) {
       // 读取失败，显示错误信息
       const errorMessage = error instanceof Error ? error.message : '未知错误';

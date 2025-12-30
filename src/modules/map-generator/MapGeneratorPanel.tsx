@@ -3,12 +3,12 @@
  * 
  * 职责：
  * - 显示和编辑 MapX/MapY（地图尺寸）
- * - 提供输入框或步进器控制地图大小（1~50）
+ * - 提供输入框或步进器控制地图大小（0~100）
  * - 当 MapX/MapY 改变时通知父组件更新关卡数据
  * 
  * 输入：
- * - MapX: number - 当前地图宽度
- * - MapY: number - 当前地图高度
+ * - MapX: number - 当前地图宽度（0~100）
+ * - MapY: number - 当前地图高度（0~100）
  * - onMapSizeChange: (MapX: number, MapY: number) => void - 尺寸变更回调
  * 
  * 输出：
@@ -17,6 +17,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { MAP_MIN, MAP_MAX } from '@/shared/constants';
 import './MapGeneratorPanel.css';
 
 interface MapGeneratorPanelProps {
@@ -44,7 +45,7 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
   const handleMapXChange = (value: string) => {
     setLocalMapX(value);
     const numValue = parseInt(value, 10);
-    if (!isNaN(numValue) && numValue >= 1 && numValue <= 50) {
+    if (!isNaN(numValue) && numValue >= MAP_MIN && numValue <= MAP_MAX) {
       onMapSizeChange(numValue, MapY);
     }
   };
@@ -53,25 +54,25 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
   const handleMapYChange = (value: string) => {
     setLocalMapY(value);
     const numValue = parseInt(value, 10);
-    if (!isNaN(numValue) && numValue >= 1 && numValue <= 50) {
+    if (!isNaN(numValue) && numValue >= MAP_MIN && numValue <= MAP_MAX) {
       onMapSizeChange(MapX, numValue);
     }
   };
 
   // 步进器：增加
   const handleIncrement = (type: 'X' | 'Y') => {
-    if (type === 'X' && MapX < 50) {
+    if (type === 'X' && MapX < MAP_MAX) {
       onMapSizeChange(MapX + 1, MapY);
-    } else if (type === 'Y' && MapY < 50) {
+    } else if (type === 'Y' && MapY < MAP_MAX) {
       onMapSizeChange(MapX, MapY + 1);
     }
   };
 
   // 步进器：减少
   const handleDecrement = (type: 'X' | 'Y') => {
-    if (type === 'X' && MapX > 1) {
+    if (type === 'X' && MapX > MAP_MIN) {
       onMapSizeChange(MapX - 1, MapY);
-    } else if (type === 'Y' && MapY > 1) {
+    } else if (type === 'Y' && MapY > MAP_MIN) {
       onMapSizeChange(MapX, MapY - 1);
     }
   };
@@ -80,12 +81,12 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
   const handleBlur = (type: 'X' | 'Y') => {
     if (type === 'X') {
       const numValue = parseInt(localMapX, 10);
-      if (isNaN(numValue) || numValue < 1 || numValue > 50) {
+      if (isNaN(numValue) || numValue < MAP_MIN || numValue > MAP_MAX) {
         setLocalMapX(MapX.toString());
       }
     } else {
       const numValue = parseInt(localMapY, 10);
-      if (isNaN(numValue) || numValue < 1 || numValue > 50) {
+      if (isNaN(numValue) || numValue < MAP_MIN || numValue > MAP_MAX) {
         setLocalMapY(MapY.toString());
       }
     }
@@ -103,7 +104,7 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
               <button
                 className="stepper-btn"
                 onClick={() => handleDecrement('X')}
-                disabled={MapX <= 1}
+                disabled={MapX <= 0}
               >
                 −
               </button>
@@ -113,13 +114,13 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
                 value={localMapX}
                 onChange={(e) => handleMapXChange(e.target.value)}
                 onBlur={() => handleBlur('X')}
-                min={1}
-                max={50}
+                min={0}
+                max={MAP_MAX}
               />
               <button
                 className="stepper-btn"
                 onClick={() => handleIncrement('X')}
-                disabled={MapX >= 50}
+                disabled={MapX >= MAP_MAX}
               >
                 +
               </button>
@@ -133,7 +134,7 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
               <button
                 className="stepper-btn"
                 onClick={() => handleDecrement('Y')}
-                disabled={MapY <= 1}
+                disabled={MapY <= 0}
               >
                 −
               </button>
@@ -143,13 +144,13 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
                 value={localMapY}
                 onChange={(e) => handleMapYChange(e.target.value)}
                 onBlur={() => handleBlur('Y')}
-                min={1}
-                max={50}
+                min={0}
+                max={MAP_MAX}
               />
               <button
                 className="stepper-btn"
                 onClick={() => handleIncrement('Y')}
-                disabled={MapY >= 50}
+                disabled={MapY >= MAP_MAX}
               >
                 +
               </button>
@@ -157,7 +158,7 @@ export const MapGeneratorPanel: React.FC<MapGeneratorPanelProps> = ({
           </label>
         </div>
         <div className="info-box">
-          <p>范围：1 ~ 50</p>
+          <p>范围：0 ~ {MAP_MAX}</p>
           <p>总格子数：{MapX * MapY}</p>
           <p>Index 范围：0 ~ {MapX * MapY - 1}</p>
         </div>

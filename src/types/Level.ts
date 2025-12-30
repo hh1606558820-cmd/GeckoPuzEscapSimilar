@@ -71,8 +71,8 @@ export interface RopeData {
  * 使用 MapX、MapY 和 Rope 数组
  */
 export interface LevelData {
-  MapX: number;         // 地图宽度（1~50）
-  MapY: number;         // 地图高度（1~50）
+  MapX: number;         // 地图宽度（0~100）
+  MapY: number;         // 地图高度（0~100）
   Rope: RopeData[];     // 绳索数据数组
 }
 
