@@ -4,15 +4,17 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  min-height: 60px;
   background-color: #fff;
   border-bottom: 1px solid #ddd;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 8px 20px;
   z-index: 1000;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap; /* 允许换行 */
+  gap: 8px; /* 换行时的间距 */
 }
 
 .top-bar-left {
@@ -46,6 +48,11 @@
 .top-bar-right {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0; /* 允许收缩 */
+  overflow-x: auto; /* 窄屏时横向滚动 */
+  overflow-y: hidden;
 }
 
 .top-bar-btn {
@@ -56,6 +63,8 @@
   cursor: pointer;
   font-size: 14px;
   transition: background-color 0.2s;
+  white-space: nowrap; /* 防止按钮文字换行 */
+  flex-shrink: 0; /* 防止按钮被压缩 */
 }
 
 .top-bar-btn:hover {

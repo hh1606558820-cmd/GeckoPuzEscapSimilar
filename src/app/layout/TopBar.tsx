@@ -124,6 +124,9 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>
+        <button className="top-bar-btn" onClick={onOpenAutoFill}>
+          自动填充
+        </button>
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
         </button>
@@ -135,9 +138,6 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button className="top-bar-btn" onClick={onToggleJsonPanel}>
           {showJsonPanel ? '关闭JSON' : '打开JSON'}
-        </button>
-        <button className="top-bar-btn" onClick={onOpenAutoFill}>
-          自动填充
         </button>
         <input
           ref={fileInputRef}
