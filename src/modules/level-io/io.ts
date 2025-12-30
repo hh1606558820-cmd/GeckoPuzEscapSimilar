@@ -227,10 +227,6 @@ export async function readLevelJson(file: File): Promise<ReadLevelResult> {
         for (let i = 0; i < data.Rope.length; i++) {
           const rope = data.Rope[i];
           const ropeNum = i + 1;
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
           if (typeof rope !== 'object' || rope === null) {
             reject(new Error(`Rope #${ropeNum} 格式错误：必须是对象`));
             return;
@@ -339,11 +335,7 @@ export async function readLevelJson(file: File): Promise<ReadLevelResult> {
         // 注意：如果 MapX === 0 或 MapY === 0，normalizeImportedLevel 需要安全处理
         const normalizedLevelData = normalizeImportedLevel(tempLevelData);
 
-<<<<<<< Updated upstream
         // 返回结果（使用 ReadLevelResult 格式）
-=======
-        // 返回结果
->>>>>>> Stashed changes
         resolve({
           levelData: normalizedLevelData,
           warnings,
