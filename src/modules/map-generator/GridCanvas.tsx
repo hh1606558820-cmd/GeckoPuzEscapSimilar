@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 模块：网格画布 - 地图生成器版本 (GridCanvas)
  * 
  * 职责：
@@ -71,12 +71,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [baseCellSize, setBaseCellSize] = useState(40); // 基础格子大小（未缩放）
 
-  // 构型编辑模式的拖拽状态（使用 Pointer Events）
-  const [isPointerDown, setIsPointerDown] = useState(false);
-  const [dragMode, setDragMode] = useState(false); // 是否已判定为拖动
-  const [downCellIndex, setDownCellIndex] = useState<number | null>(null);
-  const [downPos, setDownPos] = useState<{ x: number; y: number } | null>(null);
-  const [lastProcessedIndex, setLastProcessedIndex] = useState<number | null>(null); // 记录最后处理的 index，避免重复处理
 
   // 计算自适应 baseCellSize（不受 zoom 影响）
   useEffect(() => {
@@ -174,14 +168,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     x: number,
     y: number
   ) => {
-<<<<<<< HEAD
-    // 如果处于构型编辑模式，不使用 onClick（改用 Pointer Events）
-    if (isMaskEditing) {
-      return;
-    }
-
-=======
->>>>>>> 01353fb7e5ea6b6bc4d74a90934aaefa31e8bc64
     e.preventDefault();
     const index = getCellIndex(x, y, MapX);
 
@@ -211,96 +197,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     onSelectionChange(newSelection);
   };
 
-  // 处理构型编辑模式的 Pointer Down
-  const handleMaskPointerDown = (
-    e: React.PointerEvent,
-    x: number,
-    y: number
-  ) => {
-    if (!isMaskEditing || !onMaskCellClick) {
-      return;
-    }
 
-    e.preventDefault();
-    const index = getCellIndex(x, y, MapX);
-
-    // 设置 Pointer Capture 防止拖动丢事件
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    }
-
-    // 初始化状态
-    setIsPointerDown(true);
-    setDragMode(false);
-    setDownCellIndex(index);
-    setDownPos({ x: e.clientX, y: e.clientY });
-    setLastProcessedIndex(null);
-
-    // 立即对当前 cell 执行一次 applyMask（让拖动开始即生效）
-    onMaskCellClick(index);
-    setLastProcessedIndex(index);
-  };
-
-  // 处理构型编辑模式的 Pointer Enter（当 isPointerDown=true 时）
-  const handleMaskPointerEnter = (
-    e: React.PointerEvent,
-    x: number,
-    y: number
-  ) => {
-    if (!isMaskEditing || !isPointerDown || !onMaskCellClick || downPos === null) {
-      return;
-    }
-
-    const index = getCellIndex(x, y, MapX);
-
-    // 计算移动距离
-    const dx = e.clientX - downPos.x;
-    const dy = e.clientY - downPos.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // 若移动距离 > 3px，则 dragMode=true
-    if (distance > 3) {
-      setDragMode(true);
-    }
-
-    // 对进入的 cell 执行 applyMask（如果还没处理过）
-    if (index !== lastProcessedIndex) {
-      onMaskCellClick(index);
-      setLastProcessedIndex(index);
-    }
-  };
-
-  // 处理构型编辑模式的 Pointer Up
-  const handleMaskPointerUp = (e: React.PointerEvent) => {
-    if (!isMaskEditing || !isPointerDown) {
-      return;
-    }
-
-    e.preventDefault();
-
-    // 释放 Pointer Capture
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-
-    // 如果 dragMode=false 且 downCellIndex!=null，视为"单击"
-    // 注意：由于 onPointerDown 已经 apply 过一次，这里不再 toggle
-    // （如果改为 onDown 不 apply，onUp 再 toggle，则取消下面的注释）
-    // 为了消除 TypeScript 警告，我们检查这些变量但不使用它们
-    if (!dragMode && downCellIndex !== null) {
-      // 单击已在 onPointerDown 时处理，这里不需要再 toggle
-      // if (onMaskCellClick) {
-      //   onMaskCellClick(downCellIndex);
-      // }
-    }
-
-    // 重置状态
-    setIsPointerDown(false);
-    setDragMode(false);
-    setDownCellIndex(null);
-    setDownPos(null);
-    setLastProcessedIndex(null);
-  };
 
   // 处理鼠标按下（开始拖拽，非构型编辑模式）
   const handleMouseDown = (
@@ -308,14 +205,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     x: number,
     y: number
   ) => {
-<<<<<<< HEAD
-    // 如果处于构型编辑模式，不使用 MouseDown（改用 Pointer Events）
-    if (isMaskEditing) {
-      return;
-    }
-
-=======
->>>>>>> 01353fb7e5ea6b6bc4d74a90934aaefa31e8bc64
     e.preventDefault();
     const index = getCellIndex(x, y, MapX);
 
@@ -376,14 +265,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         const index = getCellIndex(x, y, MapX);
         setDragEndIndex(index);
 
-<<<<<<< HEAD
-        // 如果处于构型编辑模式，不使用旧的拖拽逻辑（改用 Pointer Events）
-        if (isMaskEditing) {
-          return;
-        }
-
-=======
->>>>>>> 01353fb7e5ea6b6bc4d74a90934aaefa31e8bc64
         // 实时更新选择（拖拽框选）
         const newSelection = handleDragSelection(
           dragStartIndex,
@@ -457,11 +338,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
               height: `${baseCellSize}px`,
             }}
             onMouseDown={(e) => handleMouseDown(e, x, y)}
-            onClick={(e) => handleCellClickEvent(e, x, y)}
-            onPointerDown={isMaskEditing ? (e) => handleMaskPointerDown(e, x, y) : undefined}
-            onPointerEnter={isMaskEditing ? (e) => handleMaskPointerEnter(e, x, y) : undefined}
-            onPointerUp={isMaskEditing ? (e) => handleMaskPointerUp(e) : undefined}
-            title={`坐标: (${x}, ${y}), Index: ${index}`}
+            onClick={(e) => handleCellClickEvent(e, x, y)}            title={`坐标: (${x}, ${y}), Index: ${index}`}
           >
             {showIndex && (
               <span className="cell-index" style={{ fontSize: `${Math.max(10, displayCellSize * 0.3)}px` }}>
