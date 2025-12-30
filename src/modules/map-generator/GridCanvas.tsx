@@ -71,6 +71,11 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [baseCellSize, setBaseCellSize] = useState(40); // 基础格子大小（未缩放）
 
+<<<<<<< HEAD
+=======
+  // 构型编辑模式的拖拽状态（使用 Pointer Events）
+  const [isPointerDown, setIsPointerDown] = useState(false);
+>>>>>>> b20d6b0 (Fix: Remove merge conflict markers and clean up mask-related code in GridCanvas.tsx)
 
   // 计算自适应 baseCellSize（不受 zoom 影响）
   useEffect(() => {
@@ -197,7 +202,41 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     onSelectionChange(newSelection);
   };
 
+<<<<<<< HEAD
 
+=======
+  // 处理构型编辑模式的 Pointer Down
+
+  // 处理构型编辑模式的 Pointer Enter（当 isPointerDown=true 时）
+
+  // 处理构型编辑模式的 Pointer Up
+
+    e.preventDefault();
+
+    // 释放 Pointer Capture
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+
+    // 如果 dragMode=false 且 downCellIndex!=null，视为"单击"
+    // 注意：由于 onPointerDown 已经 apply 过一次，这里不再 toggle
+    // （如果改为 onDown 不 apply，onUp 再 toggle，则取消下面的注释）
+    // 为了消除 TypeScript 警告，我们检查这些变量但不使用它们
+    if (!dragMode && downCellIndex !== null) {
+      // 单击已在 onPointerDown 时处理，这里不需要再 toggle
+      // if (onMaskCellClick) {
+      //   onMaskCellClick(downCellIndex);
+      // }
+    }
+
+    // 重置状态
+    setIsPointerDown(false);
+    setDragMode(false);
+    setDownCellIndex(null);
+    setDownPos(null);
+    setLastProcessedIndex(null);
+  };
+>>>>>>> b20d6b0 (Fix: Remove merge conflict markers and clean up mask-related code in GridCanvas.tsx)
 
   // 处理鼠标按下（开始拖拽，非构型编辑模式）
   const handleMouseDown = (
@@ -338,7 +377,15 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
               height: `${baseCellSize}px`,
             }}
             onMouseDown={(e) => handleMouseDown(e, x, y)}
+<<<<<<< HEAD
             onClick={(e) => handleCellClickEvent(e, x, y)}            title={`坐标: (${x}, ${y}), Index: ${index}`}
+=======
+            onClick={(e) => handleCellClickEvent(e, x, y)}
+
+
+
+            title={`坐标: (${x}, ${y}), Index: ${index}`}
+>>>>>>> b20d6b0 (Fix: Remove merge conflict markers and clean up mask-related code in GridCanvas.tsx)
           >
             {showIndex && (
               <span className="cell-index" style={{ fontSize: `${Math.max(10, displayCellSize * 0.3)}px` }}>
@@ -443,4 +490,3 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     </div>
   );
 };
-
