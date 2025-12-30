@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块：网格画布 - 地图生成器版本 (GridCanvas)
  * 
  * 职责：
@@ -64,18 +64,12 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   zoom = 1.0,
   onZoomChange,
 }) => {
-  // 拖拽状态（用于普通选择和 Rope 编辑）
+  // 拖拽状态
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
   const [dragEndIndex, setDragEndIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [baseCellSize, setBaseCellSize] = useState(40); // 基础格子大小（未缩放）
-
-<<<<<<< HEAD
-=======
-  // 构型编辑模式的拖拽状态（使用 Pointer Events）
-  const [isPointerDown, setIsPointerDown] = useState(false);
->>>>>>> b20d6b0 (Fix: Remove merge conflict markers and clean up mask-related code in GridCanvas.tsx)
 
   // 计算自适应 baseCellSize（不受 zoom 影响）
   useEffect(() => {
@@ -167,13 +161,19 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     [allRopes, currentEditingPath, isRopeEditing, selectedRopeIndex]
   );
 
-  // 处理格子点击（非构型编辑模式使用）
+  // 处理格子点击
   const handleCellClickEvent = (
     e: React.MouseEvent,
     x: number,
     y: number
   ) => {
     e.preventDefault();
+
+    // 如果 MapX === 0 或 MapY === 0，不执行逻辑
+    if (MapX === 0 || MapY === 0) {
+      return;
+    }
+
     const index = getCellIndex(x, y, MapX);
 
     // 如果处于 Rope 编辑模式，使用 onCellClick 回调（优先用于路径编辑）
@@ -202,49 +202,19 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     onSelectionChange(newSelection);
   };
 
-<<<<<<< HEAD
-
-=======
-  // 处理构型编辑模式的 Pointer Down
-
-  // 处理构型编辑模式的 Pointer Enter（当 isPointerDown=true 时）
-
-  // 处理构型编辑模式的 Pointer Up
-
-    e.preventDefault();
-
-    // 释放 Pointer Capture
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-
-    // 如果 dragMode=false 且 downCellIndex!=null，视为"单击"
-    // 注意：由于 onPointerDown 已经 apply 过一次，这里不再 toggle
-    // （如果改为 onDown 不 apply，onUp 再 toggle，则取消下面的注释）
-    // 为了消除 TypeScript 警告，我们检查这些变量但不使用它们
-    if (!dragMode && downCellIndex !== null) {
-      // 单击已在 onPointerDown 时处理，这里不需要再 toggle
-      // if (onMaskCellClick) {
-      //   onMaskCellClick(downCellIndex);
-      // }
-    }
-
-    // 重置状态
-    setIsPointerDown(false);
-    setDragMode(false);
-    setDownCellIndex(null);
-    setDownPos(null);
-    setLastProcessedIndex(null);
-  };
->>>>>>> b20d6b0 (Fix: Remove merge conflict markers and clean up mask-related code in GridCanvas.tsx)
-
-  // 处理鼠标按下（开始拖拽，非构型编辑模式）
+  // 处理鼠标按下（开始拖拽）
   const handleMouseDown = (
     e: React.MouseEvent,
     x: number,
     y: number
   ) => {
     e.preventDefault();
+
+    // 如果 MapX === 0 或 MapY === 0，不执行逻辑
+    if (MapX === 0 || MapY === 0) {
+      return;
+    }
+
     const index = getCellIndex(x, y, MapX);
 
     // 如果处于 Rope 编辑模式，不处理拖拽
@@ -340,6 +310,11 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
 
   // 渲染网格（从下到上，y 从 MapY-1 到 0）
   const renderGrid = () => {
+    // 如果 MapX === 0 或 MapY === 0，不渲染网格
+    if (MapX === 0 || MapY === 0) {
+      return [];
+    }
+
     const cells: JSX.Element[] = [];
     const showIndex = displayCellSize >= 16; // 当显示 cellSize 太小时隐藏编号
 
@@ -377,15 +352,8 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
               height: `${baseCellSize}px`,
             }}
             onMouseDown={(e) => handleMouseDown(e, x, y)}
-<<<<<<< HEAD
-            onClick={(e) => handleCellClickEvent(e, x, y)}            title={`坐标: (${x}, ${y}), Index: ${index}`}
-=======
             onClick={(e) => handleCellClickEvent(e, x, y)}
-
-
-
             title={`坐标: (${x}, ${y}), Index: ${index}`}
->>>>>>> b20d6b0 (Fix: Remove merge conflict markers and clean up mask-related code in GridCanvas.tsx)
           >
             {showIndex && (
               <span className="cell-index" style={{ fontSize: `${Math.max(10, displayCellSize * 0.3)}px` }}>
@@ -421,8 +389,9 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   };
 
   // 计算网格尺寸（使用 baseCellSize）
-  const gridWidth = MapX * baseCellSize;
-  const gridHeight = MapY * baseCellSize;
+  // 如果 MapX === 0 或 MapY === 0，使用最小值避免布局问题
+  const gridWidth = Math.max(1, MapX) * baseCellSize;
+  const gridHeight = Math.max(1, MapY) * baseCellSize;
 
   return (
     <div className="map-grid-canvas">
@@ -440,19 +409,36 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
           }}
         >
           {/* 网格层 */}
-          <div
-            className="grid-layer"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${MapX}, ${baseCellSize}px)`,
-              gridTemplateRows: `repeat(${MapY}, ${baseCellSize}px)`,
-              position: 'relative',
-              width: `${gridWidth}px`,
-              height: `${gridHeight}px`,
-            }}
-          >
-            {renderGrid()}
-          </div>
+          {MapX > 0 && MapY > 0 ? (
+            <div
+              className="grid-layer"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${MapX}, ${baseCellSize}px)`,
+                gridTemplateRows: `repeat(${MapY}, ${baseCellSize}px)`,
+                position: 'relative',
+                width: `${gridWidth}px`,
+                height: `${gridHeight}px`,
+              }}
+            >
+              {renderGrid()}
+            </div>
+          ) : (
+            <div
+              className="grid-layer"
+              style={{
+                position: 'relative',
+                width: `${gridWidth}px`,
+                height: `${gridHeight}px`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#999',
+              }}
+            >
+              <p>地图尺寸为 0，不渲染网格</p>
+            </div>
+          )}
           {/* Rope 可视化叠加层（与网格层在同一坐标系中） */}
           {levelData && (
             <RopeOverlay
