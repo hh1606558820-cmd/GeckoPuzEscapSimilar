@@ -46,6 +46,7 @@ interface GridCanvasProps {
   onCellClick?: (index: number) => void;
   selectedRopeIndex?: number | null;
   onRopeHit?: (ropeIndex: number) => void;
+  onRopeUnselect?: () => void;
   levelData?: LevelData;
   showRopeOverlay?: boolean;
   showMask?: boolean;
@@ -69,6 +70,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   onCellClick,
   selectedRopeIndex = null,
   onRopeHit,
+  onRopeUnselect,
   levelData,
   showRopeOverlay = true,
   showMask = true,
@@ -253,10 +255,16 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
       // 使用 hitTestRope 函数检测命中（支持多 Rope 命中处理）
       const hitRopeIndex = hitTestRope(index, allRopes);
       if (hitRopeIndex !== null) {
-        // 命中 Rope，通知父组件
+        // 命中 Rope，通知父组件（toggle 逻辑在父组件中处理）
         onRopeHit(hitRopeIndex);
         return; // 命中后不再执行地图生成器的选择逻辑
       }
+    }
+
+    // 如果没有命中 Rope，且当前有选中的 Rope，则取消选中（点击空白处取消聚焦）
+    if (!isRopeEditing && selectedRopeIndex !== null && onRopeUnselect) {
+      onRopeUnselect();
+      // 注意：这里不 return，继续执行地图选择逻辑，让用户可以选择格子
     }
 
     // 如果没有命中 Rope，使用地图生成器的选择逻辑

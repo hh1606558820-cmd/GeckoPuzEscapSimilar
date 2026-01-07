@@ -322,8 +322,8 @@ export const App: React.FC = () => {
 
   // 处理 Rope 命中（点击网格中的 Rope 路径）
   const handleRopeHit = (ropeIndex: number) => {
-    // 设置选中的 Rope，打开管理面板
-    setSelectedRopeIndex(ropeIndex);
+    // Toggle 逻辑：如果点击的是已选中的 Rope，则取消选中；否则选中该 Rope
+    setSelectedRopeIndex((prev) => (prev === ropeIndex ? null : ropeIndex));
   };
 
   // 处理 Rope 属性更新（模块3：管理面板）
@@ -561,6 +561,7 @@ export const App: React.FC = () => {
             onCellClick={handleCellClick}
             selectedRopeIndex={selectedRopeIndex}
             onRopeHit={handleRopeHit}
+            onRopeUnselect={() => setSelectedRopeIndex(null)}
             levelData={levelData}
             showRopeOverlay={showRopeOverlay}
             showMask={showMask}
