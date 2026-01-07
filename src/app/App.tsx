@@ -34,6 +34,9 @@ import { AutoFillDialog, autoFillIrregular, type AutoFillConfig } from '@/module
 import './App.css';
 import './layout/layout.css';
 
+// 编辑器模式枚举
+export type EditorMode = 'VIEW' | 'ROPE_EDIT' | 'MASK_EDIT';
+
 export const App: React.FC = () => {
   // 关卡数据（最终 JSON 格式）
   const [levelData, setLevelData] = useState<LevelData>({
@@ -47,17 +50,28 @@ export const App: React.FC = () => {
 
   // 构型编辑相关状态（独立于普通选择）
   const [maskIndices, setMaskIndices] = useState<number[]>([]);
-  const [isMaskEditing, setIsMaskEditing] = useState<boolean>(false);
+
+  // 编辑器模式（统一的状态管理）
+  const [mode, setMode] = useState<EditorMode>('VIEW');
 
   // Rope 编辑相关状态（模块2）
   const [currentRopeIndex, setCurrentRopeIndex] = useState<number>(-1); // -1 表示未选择
-  const [isRopeEditing, setIsRopeEditing] = useState<boolean>(false);
   const [currentEditingPath, setCurrentEditingPath] = useState<number[]>([]); // 临时编辑路径
+
+  // 计算派生状态（从 mode 推导）
+  const isRopeEditing = mode === 'ROPE_EDIT';
+  const isMaskEditing = mode === 'MASK_EDIT';
 
   // Rope 管理相关状态（模块3）
   const [selectedRopeIndex, setSelectedRopeIndex] = useState<number | null>(null); // 管理面板选中的 Rope
 
-  // Rope 可视化相关状态（模块4）
+  // 显示控制状态（任务1）
+  const [showMask, setShowMask] = useState<boolean>(true);
+  const [showRopes, setShowRopes] = useState<boolean>(true);
+  const [showArrows, setShowArrows] = useState<boolean>(false);
+  const [showDText, setShowDText] = useState<boolean>(false);
+
+  // Rope 可视化相关状态（模块4，保留兼容性）
   const [showRopeOverlay, setShowRopeOverlay] = useState<boolean>(true); // 是否显示 Rope 线段/箭头
 
   // 布局相关状态
@@ -82,6 +96,39 @@ export const App: React.FC = () => {
       setSelectedIndices(validIndices);
     }
   }, [levelData.MapX, levelData.MapY]);
+
+  // 任务1：MASK_EDIT 模式下锁定显示状态
+  useEffect(() => {
+    if (isMaskEditing) {
+      setShowMask(true);
+      setShowRopes(false);
+      setShowArrows(false);
+      setShowDText(false);
+    }
+  }, [isMaskEditing]);
+
+  // 任务2：缩放等级自动降噪（仅在非 MASK_EDIT 模式下生效）
+  useEffect(() => {
+    if (isMaskEditing) return; // 构型编辑模式已锁定，不自动调整
+
+    if (zoom < 0.7) {
+      setShowRopes(false);
+      setShowArrows(false);
+      setShowDText(false);
+    } else if (zoom < 1.0) {
+      setShowRopes(true);
+      setShowArrows(false);
+      setShowDText(false);
+    } else if (zoom < 1.3) {
+      setShowRopes(true);
+      setShowArrows(true);
+      setShowDText(false);
+    } else {
+      setShowRopes(true);
+      setShowArrows(true);
+      setShowDText(true);
+    }
+  }, [zoom, isMaskEditing]);
 
   // 处理地图尺寸变更
   const handleMapSizeChange = (MapX: number, MapY: number) => {
@@ -112,10 +159,9 @@ export const App: React.FC = () => {
     setSelectedIndices([]);
     setMaskIndices([]);
     setCurrentRopeIndex(-1);
-    setIsRopeEditing(false);
     setCurrentEditingPath([]);
     setSelectedRopeIndex(null);
-    setIsMaskEditing(false);
+    setMode('VIEW');
   };
 
   // 处理选择变更（地图生成器用）
@@ -128,7 +174,7 @@ export const App: React.FC = () => {
   // 处理 Rope 选择
   const handleRopeSelect = (index: number) => {
     setCurrentRopeIndex(index);
-    setIsRopeEditing(false);
+    setMode('VIEW');
     setCurrentEditingPath([]);
   };
 
@@ -162,17 +208,17 @@ export const App: React.FC = () => {
         Rope: newRopes,
       });
 
-      setIsRopeEditing(false);
+      setMode('VIEW');
       setCurrentEditingPath([]);
     } else {
       // 开始编辑：初始化编辑路径为当前 Rope 的路径
       // 如果正在构型编辑模式，先退出构型编辑模式
       if (isMaskEditing) {
-        setIsMaskEditing(false);
+        setMode('VIEW');
       }
       const currentRope = levelData.Rope[currentRopeIndex];
       setCurrentEditingPath([...currentRope.Index]);
-      setIsRopeEditing(true);
+      setMode('ROPE_EDIT');
     }
   };
 
@@ -222,7 +268,7 @@ export const App: React.FC = () => {
       // 如果删除的是当前选中的 Rope，重置选择
       if (currentRopeIndex === index) {
         setCurrentRopeIndex(-1);
-        setIsRopeEditing(false);
+        setMode('VIEW');
         setCurrentEditingPath([]);
       } else if (currentRopeIndex > index) {
         // 如果删除的 Rope 在当前选中之前，需要调整索引
@@ -326,7 +372,7 @@ export const App: React.FC = () => {
     if (currentRopeIndex === ropeIndex) {
       // 如果删除的是正在编辑的 Rope，重置编辑状态
       setCurrentRopeIndex(-1);
-      setIsRopeEditing(false);
+      setMode('VIEW');
       setCurrentEditingPath([]);
     } else if (currentRopeIndex > ropeIndex) {
       // 如果删除的 Rope 在当前编辑之前，需要调整索引
@@ -358,9 +404,8 @@ export const App: React.FC = () => {
     setMaskIndices([]);
     setSelectedRopeIndex(null);
     setCurrentRopeIndex(-1);
-    setIsRopeEditing(false);
     setCurrentEditingPath([]);
-    setIsMaskEditing(false);
+    setMode('VIEW');
   };
 
   // ========== 构型编辑相关处理函数 ==========
@@ -374,7 +419,7 @@ export const App: React.FC = () => {
     }
     if (isMaskEditing) {
       // 退出构型编辑模式
-      setIsMaskEditing(false);
+      setMode('VIEW');
     } else {
       // 进入构型编辑模式：如果正在编辑 Rope，先退出 Rope 编辑模式
       if (isRopeEditing) {
@@ -394,10 +439,9 @@ export const App: React.FC = () => {
           Rope: newRopes,
         });
 
-        setIsRopeEditing(false);
         setCurrentEditingPath([]);
       }
-      setIsMaskEditing(true);
+      setMode('MASK_EDIT');
     }
   };
 
@@ -454,14 +498,22 @@ export const App: React.FC = () => {
         showRopeOverlay={showRopeOverlay}
         showJsonPanel={showJsonPanel}
         selectedRopeIndex={selectedRopeIndex}
-        isEditingRopePath={isRopeEditing}
-        isMaskEditing={isMaskEditing}
+        mode={mode}
+        showMask={showMask}
+        showRopes={showRopes}
+        showArrows={showArrows}
+        showDText={showDText}
+        onShowMaskChange={setShowMask}
+        onShowRopesChange={setShowRopes}
+        onShowArrowsChange={setShowArrows}
+        onShowDTextChange={setShowDText}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
         onOpenAutoFill={handleOpenAutoFill}
         onToggleMaskEditing={handleToggleMaskEditing}
+        onModeChange={setMode}
       />
       
       <div className="app-layout">
@@ -503,8 +555,7 @@ export const App: React.FC = () => {
             onSelectionChange={handleSelectionChange}
             allRopes={levelData.Rope}
             currentEditingPath={currentEditingPath}
-            isRopeEditing={isRopeEditing}
-            isMaskEditing={isMaskEditing}
+            mode={mode}
             maskIndices={maskIndices}
             onMaskChange={setMaskIndices}
             onCellClick={handleCellClick}
@@ -512,6 +563,10 @@ export const App: React.FC = () => {
             onRopeHit={handleRopeHit}
             levelData={levelData}
             showRopeOverlay={showRopeOverlay}
+            showMask={showMask}
+            showRopes={showRopes}
+            showArrows={showArrows}
+            showDText={showDText}
             zoom={zoom}
             onZoomChange={setZoom}
           />

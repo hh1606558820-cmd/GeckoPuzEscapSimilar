@@ -46,3 +46,4 @@ export function getRopeColor(colorIdx: number): RopeColorInfo {
   }
 }
 
+

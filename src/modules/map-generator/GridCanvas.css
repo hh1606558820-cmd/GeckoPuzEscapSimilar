@@ -75,14 +75,11 @@
 }
 
 .cell-index {
-  font-size: 10px;
-  font-weight: 500;
-  color: #666;
-  pointer-events: none;
+  display: none !important; /* 永远不显示编号 */
 }
 
 .grid-cell.selected .cell-index {
-  color: white;
+  display: none !important; /* 永远不显示编号 */
 }
 
 /* 构型限制：构型外格子置灰并禁用 */

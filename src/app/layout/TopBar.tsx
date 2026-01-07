@@ -22,6 +22,7 @@ import React, { useRef, useState } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
+import { EditorMode } from '@/app/App';
 import './layout.css';
 
 /**
@@ -57,14 +58,22 @@ interface TopBarProps {
   showRopeOverlay: boolean;
   showJsonPanel: boolean;
   selectedRopeIndex: number | null;
-  isEditingRopePath: boolean;
-  isMaskEditing: boolean;
+  mode: EditorMode;
+  showMask: boolean;
+  showRopes: boolean;
+  showArrows: boolean;
+  showDText: boolean;
+  onShowMaskChange: (value: boolean) => void;
+  onShowRopesChange: (value: boolean) => void;
+  onShowArrowsChange: (value: boolean) => void;
+  onShowDTextChange: (value: boolean) => void;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
   onClearLevel: () => void;
   onOpenAutoFill: () => void;
   onToggleMaskEditing: () => void;
+  onModeChange: (mode: EditorMode) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -72,8 +81,15 @@ export const TopBar: React.FC<TopBarProps> = ({
   showRopeOverlay,
   showJsonPanel,
   selectedRopeIndex,
-  isEditingRopePath,
-  isMaskEditing,
+  mode,
+  showMask,
+  showRopes,
+  showArrows,
+  showDText,
+  onShowMaskChange,
+  onShowRopesChange,
+  onShowArrowsChange,
+  onShowDTextChange,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
@@ -81,6 +97,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenAutoFill,
   onToggleMaskEditing,
 }) => {
+  // 计算派生状态
+  const isMaskEditing = mode === 'MASK_EDIT';
+  const isDisplayLocked = isMaskEditing; // MASK_EDIT 模式下锁定显示
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [levelName, setLevelName] = useState<string>('level');
 
@@ -153,10 +172,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             当前选中: {selectedRopeIndex !== null ? `Rope #${selectedRopeIndex + 1}` : '未选中Rope'}
           </span>
           <span className="top-bar-status">
-            编辑模式: {isEditingRopePath ? '编辑中' : '非编辑'}
-          </span>
-          <span className="top-bar-status">
-            构型模式: {isMaskEditing ? '构型编辑' : '普通模式'}
+            模式: {mode === 'VIEW' ? '查看' : mode === 'ROPE_EDIT' ? 'Rope编辑' : '构型编辑'}
           </span>
         </div>
       </div>
@@ -175,18 +191,58 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>
-        <button className="top-bar-btn" onClick={onToggleMaskEditing}>
-          编辑构型
-        </button>
         <button className="top-bar-btn" onClick={onOpenAutoFill}>
           自动填充
         </button>
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
         </button>
+        <button className="top-bar-btn" onClick={onToggleMaskEditing}>
+          编辑构型
+        </button>
         <button className="top-bar-btn" onClick={handleRead}>
           读取关卡
         </button>
+        {/* 显示控制开关 */}
+        <div className="top-bar-display-controls" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <label style={{ fontSize: '12px', marginRight: '4px' }}>显示：</label>
+          <button
+            className="top-bar-btn"
+            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
+            onClick={() => !isDisplayLocked && onShowMaskChange(!showMask)}
+            disabled={isDisplayLocked}
+            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换构型显示'}
+          >
+            {showMask ? '✓构型' : '构型'}
+          </button>
+          <button
+            className="top-bar-btn"
+            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
+            onClick={() => !isDisplayLocked && onShowRopesChange(!showRopes)}
+            disabled={isDisplayLocked}
+            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换Rope线显示'}
+          >
+            {showRopes ? '✓线' : '线'}
+          </button>
+          <button
+            className="top-bar-btn"
+            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
+            onClick={() => !isDisplayLocked && onShowArrowsChange(!showArrows)}
+            disabled={isDisplayLocked}
+            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换箭头显示'}
+          >
+            {showArrows ? '✓箭头' : '箭头'}
+          </button>
+          <button
+            className="top-bar-btn"
+            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
+            onClick={() => !isDisplayLocked && onShowDTextChange(!showDText)}
+            disabled={isDisplayLocked}
+            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换D文本显示'}
+          >
+            {showDText ? '✓D' : 'D'}
+          </button>
+        </div>
         <button className="top-bar-btn" onClick={onToggleRopeOverlay}>
           {showRopeOverlay ? '隐藏线段' : '显示线段'}
         </button>

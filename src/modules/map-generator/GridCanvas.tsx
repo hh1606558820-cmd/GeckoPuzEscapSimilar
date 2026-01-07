@@ -30,6 +30,7 @@ import { getCellIndex, getCellPosition, handleCellClick, handleDragSelection } f
 import { hitTestRope } from '@/modules/rope-manager/ropeHitTest';
 import { RopeOverlay } from '@/modules/rope-visualizer/RopeOverlay';
 import { MaskEditorLayer } from '@/modules/mask-editor/MaskEditorLayer';
+import { EditorMode } from '@/app/App';
 import './GridCanvas.css';
 
 interface GridCanvasProps {
@@ -39,8 +40,7 @@ interface GridCanvasProps {
   onSelectionChange: (indices: number[]) => void;
   allRopes?: RopeData[];
   currentEditingPath?: number[];
-  isRopeEditing?: boolean;
-  isMaskEditing?: boolean;
+  mode: EditorMode;
   maskIndices?: number[];
   onMaskChange?: (indices: number[]) => void;
   onCellClick?: (index: number) => void;
@@ -48,6 +48,10 @@ interface GridCanvasProps {
   onRopeHit?: (ropeIndex: number) => void;
   levelData?: LevelData;
   showRopeOverlay?: boolean;
+  showMask?: boolean;
+  showRopes?: boolean;
+  showArrows?: boolean;
+  showDText?: boolean;
   zoom?: number;
   onZoomChange?: (zoom: number) => void;
 }
@@ -59,8 +63,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   onSelectionChange,
   allRopes = [],
   currentEditingPath = [],
-  isRopeEditing = false,
-  isMaskEditing = false,
+  mode,
   maskIndices = [],
   onMaskChange,
   onCellClick,
@@ -68,9 +71,16 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   onRopeHit,
   levelData,
   showRopeOverlay = true,
+  showMask = true,
+  showRopes = true,
+  showArrows = false,
+  showDText = false,
   zoom = 1.0,
   onZoomChange,
 }) => {
+  // 计算派生状态
+  const isRopeEditing = mode === 'ROPE_EDIT';
+  const isMaskEditing = mode === 'MASK_EDIT';
   // 拖拽状态
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
@@ -142,14 +152,14 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   const isCellSelected = useCallback(
     (index: number) => {
       if (isMaskEditing) {
-        // 构型编辑模式：使用 maskIndices
-        return maskIndices.includes(index);
+        // 构型编辑模式：使用 maskIndices（如果 showMask 为 true）
+        return showMask && maskIndices.includes(index);
       } else {
         // 普通模式：使用 selectedIndices
         return !isRopeEditing && selectedIndices.includes(index);
       }
     },
-    [selectedIndices, maskIndices, isRopeEditing, isMaskEditing]
+    [selectedIndices, maskIndices, isRopeEditing, isMaskEditing, showMask]
   );
 
   // 判断格子是否在某个 Rope 路径中
@@ -383,7 +393,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     }
 
     const cells: JSX.Element[] = [];
-    const showIndex = displayCellSize >= 16; // 当显示 cellSize 太小时隐藏编号
 
     // 从下到上渲染（y 从 MapY-1 到 0）
     for (let displayRow = 0; displayRow < MapY; displayRow++) {
@@ -433,11 +442,6 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
             {...cellProps}
             title={`坐标: (${x}, ${y}), Index: ${index}`}
           >
-            {showIndex && (
-              <span className="cell-index" style={{ fontSize: `${Math.max(10, displayCellSize * 0.3)}px` }}>
-                {index}
-              </span>
-            )}
           </div>
         );
       }
@@ -514,13 +518,15 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
           )}
           {/* Rope 可视化叠加层（与网格层在同一坐标系中） */}
           {/* 构型编辑模式下也渲染 RopeOverlay，但必须 pointer-events:none */}
-          {levelData && (
+          {levelData && showRopes && (
             <RopeOverlay
               levelData={levelData}
               cellSize={baseCellSize}
               zoom={zoom}
               showRopeOverlay={showRopeOverlay}
               selectedRopeIndex={selectedRopeIndex}
+              showArrows={showArrows}
+              showDText={showDText}
             />
           )}
           {/* 构型编辑模式：MaskEditorLayer（必须最后渲染，保证在最上层） */}
