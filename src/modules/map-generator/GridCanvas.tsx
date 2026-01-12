@@ -36,6 +36,9 @@ interface GridCanvasProps {
   MapY: number;
   selectedIndices: number[];
   onSelectionChange: (indices: number[]) => void;
+  maskIndices?: number[];
+  onMaskChange?: (indices: number[]) => void;
+  isMaskEditing?: boolean;
   allRopes?: RopeData[];
   currentEditingPath?: number[];
   isRopeEditing?: boolean;
@@ -53,6 +56,9 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   MapY,
   selectedIndices,
   onSelectionChange,
+  maskIndices = [],
+  onMaskChange,
+  isMaskEditing = false,
   allRopes = [],
   currentEditingPath = [],
   isRopeEditing = false,
@@ -99,12 +105,18 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
   // 实际显示的 cellSize（baseCellSize * zoom）
   const displayCellSize = baseCellSize * zoom;
 
-  // 判断格子是否被选中（地图生成器模式）
+  // 判断格子是否被选中（地图生成器模式或构型编辑模式）
   const isCellSelected = useCallback(
     (index: number) => {
-      return !isRopeEditing && selectedIndices.includes(index);
+      if (isMaskEditing) {
+        // 构型编辑模式：使用 maskIndices
+        return maskIndices.includes(index);
+      } else {
+        // 普通模式：使用 selectedIndices
+        return !isRopeEditing && selectedIndices.includes(index);
+      }
     },
-    [selectedIndices, isRopeEditing]
+    [selectedIndices, maskIndices, isRopeEditing, isMaskEditing]
   );
 
   // 判断格子是否在某个 Rope 路径中
@@ -176,6 +188,15 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
 
     const index = getCellIndex(x, y, MapX);
 
+    // 如果处于构型编辑模式，toggle maskIndices
+    if (isMaskEditing && onMaskChange) {
+      const newMaskIndices = maskIndices.includes(index)
+        ? maskIndices.filter((i) => i !== index) // 取消选择
+        : [...maskIndices, index]; // 添加选择
+      onMaskChange(newMaskIndices);
+      return;
+    }
+
     // 如果处于 Rope 编辑模式，使用 onCellClick 回调（优先用于路径编辑）
     if (isRopeEditing && onCellClick) {
       onCellClick(index);
@@ -183,7 +204,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     }
 
     // 在非编辑模式下，先检查是否命中 Rope（模块3：Rope 管理）
-    if (!isRopeEditing && onRopeHit) {
+    if (!isRopeEditing && !isMaskEditing && onRopeHit) {
       // 使用 hitTestRope 函数检测命中（支持多 Rope 命中处理）
       const hitRopeIndex = hitTestRope(index, allRopes);
       if (hitRopeIndex !== null) {
@@ -193,13 +214,15 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
       }
     }
 
-    // 如果没有命中 Rope，使用地图生成器的选择逻辑
-    const newSelection = handleCellClick(
-      index,
-      selectedIndices,
-      e.ctrlKey || e.metaKey // 支持 Mac 的 Cmd 键
-    );
-    onSelectionChange(newSelection);
+    // 如果没有命中 Rope 且不在构型编辑模式，使用地图生成器的选择逻辑
+    if (!isMaskEditing) {
+      const newSelection = handleCellClick(
+        index,
+        selectedIndices,
+        e.ctrlKey || e.metaKey // 支持 Mac 的 Cmd 键
+      );
+      onSelectionChange(newSelection);
+    }
   };
 
   // 处理鼠标按下（开始拖拽）
@@ -217,8 +240,8 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
 
     const index = getCellIndex(x, y, MapX);
 
-    // 如果处于 Rope 编辑模式，不处理拖拽
-    if (isRopeEditing) {
+    // 如果处于 Rope 编辑模式或构型编辑模式，不处理拖拽
+    if (isRopeEditing || isMaskEditing) {
       return;
     }
 
@@ -316,7 +339,8 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
     }
 
     const cells: JSX.Element[] = [];
-    const showIndex = displayCellSize >= 16; // 当显示 cellSize 太小时隐藏编号
+    // 放大后隐藏网格数字（zoom >= 1.2 时隐藏）
+    const showIndex = zoom < 1.2 && displayCellSize >= 16;
 
     // 从下到上渲染（y 从 MapY-1 到 0）
     for (let displayRow = 0; displayRow < MapY; displayRow++) {
@@ -327,8 +351,12 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         const isSelected = isCellSelected(index);
         const ropeClass = getRopeCellClass(index);
         
+        // 退出构型模式后：非构型格置灰
+        const isMaskedOut = !isMaskEditing && maskIndices.length > 0 && !maskIndices.includes(index);
+        
         const isInDragRange =
           !isRopeEditing &&
+          !isMaskEditing &&
           dragStartIndex !== null &&
           dragEndIndex !== null &&
           (() => {
@@ -346,7 +374,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
             key={`${x}-${y}`}
             className={`grid-cell ${isSelected ? 'selected' : ''} ${
               isInDragRange && isDragging ? 'drag-range' : ''
-            } ${ropeClass}`}
+            } ${isMaskedOut ? 'masked-out' : ''} ${ropeClass}`}
             style={{
               width: `${baseCellSize}px`,
               height: `${baseCellSize}px`,
@@ -467,7 +495,9 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
         </div>
       )}
       <div className="canvas-hint">
-        {isRopeEditing ? (
+        {isMaskEditing ? (
+          <p>✓ 构型编辑模式：点击格子涂/取消构型格</p>
+        ) : isRopeEditing ? (
           <p>✓ Rope 编辑模式：在网格中按顺序点击格子编辑路径</p>
         ) : (
           <p>提示：单击选择 | Ctrl+单击多选 | 拖拽框选</p>

@@ -32,6 +32,8 @@ interface TopBarProps {
   isEditingRopePath: boolean;
   levelName: string;
   onLevelNameChange: (name: string) => void;
+  isMaskEditing: boolean;
+  onToggleMaskEditing: () => void;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
@@ -46,6 +48,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   isEditingRopePath,
   levelName,
   onLevelNameChange,
+  isMaskEditing,
+  onToggleMaskEditing,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
@@ -153,7 +157,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             当前选中: {selectedRopeIndex !== null ? `Rope #${selectedRopeIndex + 1}` : '未选中Rope'}
           </span>
           <span className="top-bar-status">
-            编辑模式: {isEditingRopePath ? '编辑中' : '非编辑'}
+            编辑模式: {isEditingRopePath ? 'Rope编辑中' : isMaskEditing ? '构型编辑中' : '非编辑'}
           </span>
         </div>
       </div>
@@ -182,6 +186,9 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button className="top-bar-btn" onClick={handleRead}>
           读取关卡
+        </button>
+        <button className="top-bar-btn" onClick={onToggleMaskEditing}>
+          {isMaskEditing ? '退出构型编辑' : '编辑构型'}
         </button>
         <button className="top-bar-btn" onClick={onToggleRopeOverlay}>
           {showRopeOverlay ? '隐藏线段' : '显示线段'}

@@ -44,6 +44,10 @@ export const App: React.FC = () => {
   // 编辑器内部状态：选中的格子索引数组（地图生成器用）
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
+  // 构型编辑相关状态（独立于普通选择）
+  const [isMaskEditing, setIsMaskEditing] = useState<boolean>(false);
+  const [maskIndices, setMaskIndices] = useState<number[]>([]); // 构型格集合
+
   // Rope 编辑相关状态（模块2）
   const [currentRopeIndex, setCurrentRopeIndex] = useState<number>(-1); // -1 表示未选择
   const [isRopeEditing, setIsRopeEditing] = useState<boolean>(false);
@@ -104,6 +108,8 @@ export const App: React.FC = () => {
 
     // 清空 UI 状态
     setSelectedIndices([]);
+    setMaskIndices([]);
+    setIsMaskEditing(false);
     setCurrentRopeIndex(-1);
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
@@ -113,6 +119,49 @@ export const App: React.FC = () => {
   // 处理选择变更（地图生成器用）
   const handleSelectionChange = (indices: number[]) => {
     setSelectedIndices(indices);
+  };
+
+  // 处理构型格变更（构型编辑用）
+  const handleMaskChange = (indices: number[]) => {
+    setMaskIndices(indices);
+  };
+
+  // 切换构型编辑模式
+  const handleToggleMaskEditing = () => {
+    // 如果 MapX === 0 或 MapY === 0，不允许进入构型编辑模式
+    if (levelData.MapX === 0 || levelData.MapY === 0) {
+      alert('地图尺寸为 0 时不能进入构型编辑模式');
+      return;
+    }
+    
+    if (isMaskEditing) {
+      // 退出构型编辑模式
+      setIsMaskEditing(false);
+    } else {
+      // 进入构型编辑模式：如果正在编辑 Rope，先退出 Rope 编辑模式
+      if (isRopeEditing) {
+        // 结束编辑：保存路径到 Rope
+        const currentRope = levelData.Rope[currentRopeIndex];
+        const updatedRope = calculateRopeFields(
+          currentEditingPath,
+          levelData.MapX,
+          currentRope
+        );
+
+        const newRopes = [...levelData.Rope];
+        newRopes[currentRopeIndex] = updatedRope;
+
+        setLevelData({
+          ...levelData,
+          Rope: newRopes,
+        });
+
+        setCurrentEditingPath([]);
+      }
+      setIsMaskEditing(true);
+      setSelectedRopeIndex(null); // 退出 Rope 聚焦
+      setIsRopeEditing(false); // 关闭 Rope 编辑
+    }
   };
 
   // ========== Rope 编辑相关处理函数 ==========
@@ -338,6 +387,8 @@ export const App: React.FC = () => {
 
     // 清空所有选择状态（避免脏状态）
     setSelectedIndices([]);
+    setMaskIndices([]);
+    setIsMaskEditing(false);
     setSelectedRopeIndex(null);
     setCurrentRopeIndex(-1);
     setIsRopeEditing(false);
@@ -354,6 +405,8 @@ export const App: React.FC = () => {
         isEditingRopePath={isRopeEditing}
         levelName={levelName}
         onLevelNameChange={setLevelName}
+        isMaskEditing={isMaskEditing}
+        onToggleMaskEditing={handleToggleMaskEditing}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
@@ -397,6 +450,9 @@ export const App: React.FC = () => {
             MapY={levelData.MapY}
             selectedIndices={selectedIndices}
             onSelectionChange={handleSelectionChange}
+            maskIndices={maskIndices}
+            onMaskChange={handleMaskChange}
+            isMaskEditing={isMaskEditing}
             allRopes={levelData.Rope}
             currentEditingPath={currentEditingPath}
             isRopeEditing={isRopeEditing}
