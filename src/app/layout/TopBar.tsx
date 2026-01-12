@@ -22,6 +22,7 @@ import React, { useRef } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
+import { sanitizeFileName } from '@/shared/utils';
 import './layout.css';
 
 interface TopBarProps {
@@ -32,6 +33,8 @@ interface TopBarProps {
   isEditingRopePath: boolean;
   levelName: string;
   onLevelNameChange: (name: string) => void;
+  isLevelNameDirty: boolean;
+  onLevelNameDirtyChange: (dirty: boolean) => void;
   isMaskEditing: boolean;
   onToggleMaskEditing: () => void;
   onLevelDataLoad: (levelData: LevelData) => void;
@@ -48,6 +51,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   isEditingRopePath,
   levelName,
   onLevelNameChange,
+  isLevelNameDirty,
+  onLevelNameDirtyChange,
   isMaskEditing,
   onToggleMaskEditing,
   onLevelDataLoad,
@@ -126,10 +131,15 @@ export const TopBar: React.FC<TopBarProps> = ({
         alert(`⚠ 警告：${warningMessage}\n\n已继续加载关卡文件。`);
       }
       
-      // 如果输入框为空，从文件名回填（可选）
-      if (!levelName.trim()) {
-        const fileNameWithoutExt = file.name.replace(/\.json$/i, '');
-        onLevelNameChange(fileNameWithoutExt);
+      // 方案A：仅当输入框为空或未手动修改时才回填文件名
+      if (!isLevelNameDirty || !levelName.trim()) {
+        // 去掉扩展名
+        const baseName = file.name.replace(/\.json$/i, '');
+        // 清洗文件名
+        const sanitized = sanitizeFileName(baseName);
+        onLevelNameChange(sanitized);
+        // 重置 dirty 状态（因为这是自动回填，不是用户手动输入）
+        onLevelNameDirtyChange(false);
       }
       
       onLevelDataLoad(loadedLevelData);
@@ -167,7 +177,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           <input
             type="text"
             value={levelName}
-            onChange={(e) => onLevelNameChange(e.target.value)}
+            onChange={(e) => {
+              onLevelNameChange(e.target.value);
+              // 用户手动修改时设置 dirty = true
+            }}
             style={{
               padding: '4px 8px',
               fontSize: '14px',

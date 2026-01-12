@@ -68,6 +68,7 @@ export const App: React.FC = () => {
 
   // 关卡文件名状态
   const [levelName, setLevelName] = useState<string>('level');
+  const [isLevelNameDirty, setIsLevelNameDirty] = useState<boolean>(false);
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -114,6 +115,8 @@ export const App: React.FC = () => {
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
     setSelectedRopeIndex(null);
+    setLevelName('level');
+    setIsLevelNameDirty(false);
   };
 
   // 处理选择变更（地图生成器用）
@@ -393,6 +396,8 @@ export const App: React.FC = () => {
     setCurrentRopeIndex(-1);
     setIsRopeEditing(false);
     setCurrentEditingPath([]);
+    // 读取新文件时重置文件名 dirty 状态（文件加载完成后会设置新的文件名）
+    setIsLevelNameDirty(false);
   };
 
   return (
@@ -404,7 +409,12 @@ export const App: React.FC = () => {
         selectedRopeIndex={selectedRopeIndex}
         isEditingRopePath={isRopeEditing}
         levelName={levelName}
-        onLevelNameChange={setLevelName}
+        onLevelNameChange={(name) => {
+          setLevelName(name);
+          setIsLevelNameDirty(true);
+        }}
+        isLevelNameDirty={isLevelNameDirty}
+        onLevelNameDirtyChange={setIsLevelNameDirty}
         isMaskEditing={isMaskEditing}
         onToggleMaskEditing={handleToggleMaskEditing}
         onLevelDataLoad={handleLevelDataLoad}
