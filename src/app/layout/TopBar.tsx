@@ -18,62 +18,22 @@
  * - 渲染顶部栏 UI
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
-import { EditorMode } from '@/app/App';
 import './layout.css';
-
-/**
- * 清理文件名：去除非法字符
- * - trim
- * - 替换 / \ : * ? " < > | 为 _
- * - 把连续下划线合并
- * - 长度>50截断
- */
-function sanitizeFilename(name: string): string {
-  // trim
-  let sanitized = name.trim();
-  
-  // 替换非法字符为下划线
-  sanitized = sanitized.replace(/[/\\:*?"<>|]/g, '_');
-  
-  // 把连续下划线合并为一个
-  sanitized = sanitized.replace(/_+/g, '_');
-  
-  // 去除首尾下划线
-  sanitized = sanitized.replace(/^_+|_+$/g, '');
-  
-  // 长度>50截断
-  if (sanitized.length > 50) {
-    sanitized = sanitized.substring(0, 50);
-  }
-  
-  return sanitized;
-}
 
 interface TopBarProps {
   levelData: LevelData;
   showRopeOverlay: boolean;
   showJsonPanel: boolean;
   selectedRopeIndex: number | null;
-  mode: EditorMode;
-  showMask: boolean;
-  showRopes: boolean;
-  showArrows: boolean;
-  showDText: boolean;
-  onShowMaskChange: (value: boolean) => void;
-  onShowRopesChange: (value: boolean) => void;
-  onShowArrowsChange: (value: boolean) => void;
-  onShowDTextChange: (value: boolean) => void;
+  isEditingRopePath: boolean;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
   onClearLevel: () => void;
-  onOpenAutoFill: () => void;
-  onToggleMaskEditing: () => void;
-  onModeChange: (mode: EditorMode) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -81,43 +41,36 @@ export const TopBar: React.FC<TopBarProps> = ({
   showRopeOverlay,
   showJsonPanel,
   selectedRopeIndex,
-  mode,
-  showMask,
-  showRopes,
-  showArrows,
-  showDText,
-  onShowMaskChange,
-  onShowRopesChange,
-  onShowArrowsChange,
-  onShowDTextChange,
+  isEditingRopePath,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
   onClearLevel,
-  onOpenAutoFill,
-  onToggleMaskEditing,
 }) => {
-  // 计算派生状态
-  const isMaskEditing = mode === 'MASK_EDIT';
-  const isDisplayLocked = isMaskEditing; // MASK_EDIT 模式下锁定显示
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [levelName, setLevelName] = useState<string>('level');
 
   // 处理生成关卡
   const handleGenerate = () => {
     const result = validateLevel(levelData);
+    
+    // 如果有错误，阻止生成
     if (!result.isValid) {
       const errorMessage = result.errors.join('\n');
       alert(`关卡校验失败：\n\n${errorMessage}\n\n请修复后重试。`);
       return;
     }
+    
+    // 如果有警告，允许生成但提示
+    if (result.warnings.length > 0) {
+      const warningMessage = result.warnings.join('\n');
+      alert(`⚠ 警告：${warningMessage}\n\n已继续生成关卡文件。`);
+    }
+    
     try {
-      // 清理文件名
-      const safeName = sanitizeFilename(levelName);
-      const finalName = (safeName || 'level') + '.json';
-      
-      downloadLevelJson(levelData, finalName);
-      alert('关卡文件已成功生成并下载！');
+      downloadLevelJson(levelData);
+      if (result.warnings.length === 0) {
+        alert('关卡文件已成功生成并下载！');
+      }
     } catch (error) {
       alert('生成文件失败，请重试。');
       console.error('生成文件失败:', error);
@@ -141,17 +94,30 @@ export const TopBar: React.FC<TopBarProps> = ({
     }
 
     try {
-      const result = await readLevelJson(file);
+      const loadedLevelData = await readLevelJson(file);
       
-      // 如果有警告信息，先显示警告
-      if (result.warnings.length > 0) {
-        const warningMessage = result.warnings.join('\n');
-        alert(`关卡文件读取成功，但有警告：\n\n${warningMessage}`);
-      } else {
-        alert('关卡文件读取成功！');
+      // 读取后进行校验
+      const result = validateLevel(loadedLevelData);
+      
+      // 如果有错误，阻止加载
+      if (!result.isValid) {
+        const errorMessage = result.errors.join('\n');
+        alert(`关卡校验失败：\n\n${errorMessage}\n\n请修复后重试。`);
+        e.target.value = '';
+        return;
       }
       
-      onLevelDataLoad(result.levelData);
+      // 如果有警告，允许加载但提示
+      if (result.warnings.length > 0) {
+        const warningMessage = result.warnings.join('\n');
+        alert(`⚠ 警告：${warningMessage}\n\n已继续加载关卡文件。`);
+      }
+      
+      onLevelDataLoad(loadedLevelData);
+      
+      if (result.warnings.length === 0) {
+        alert('关卡文件读取成功！');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '未知错误';
       alert(`读取关卡文件失败：\n\n${errorMessage}\n\n请检查文件格式是否正确。`);
@@ -172,77 +138,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             当前选中: {selectedRopeIndex !== null ? `Rope #${selectedRopeIndex + 1}` : '未选中Rope'}
           </span>
           <span className="top-bar-status">
-            模式: {mode === 'VIEW' ? '查看' : mode === 'ROPE_EDIT' ? 'Rope编辑' : '构型编辑'}
+            编辑模式: {isEditingRopePath ? '编辑中' : '非编辑'}
           </span>
         </div>
       </div>
       <div className="top-bar-right">
-        <div className="top-bar-input-group">
-          <label htmlFor="level-name-input" className="top-bar-label">关卡名：</label>
-          <input
-            id="level-name-input"
-            type="text"
-            className="top-bar-input"
-            value={levelName}
-            onChange={(e) => setLevelName(e.target.value)}
-            placeholder="level"
-          />
-        </div>
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
-        </button>
-        <button className="top-bar-btn" onClick={onOpenAutoFill}>
-          自动填充
         </button>
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
         </button>
-        <button className="top-bar-btn" onClick={onToggleMaskEditing}>
-          编辑构型
-        </button>
         <button className="top-bar-btn" onClick={handleRead}>
           读取关卡
         </button>
-        {/* 显示控制开关 */}
-        <div className="top-bar-display-controls" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <label style={{ fontSize: '12px', marginRight: '4px' }}>显示：</label>
-          <button
-            className="top-bar-btn"
-            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
-            onClick={() => !isDisplayLocked && onShowMaskChange(!showMask)}
-            disabled={isDisplayLocked}
-            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换构型显示'}
-          >
-            {showMask ? '✓构型' : '构型'}
-          </button>
-          <button
-            className="top-bar-btn"
-            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
-            onClick={() => !isDisplayLocked && onShowRopesChange(!showRopes)}
-            disabled={isDisplayLocked}
-            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换Rope线显示'}
-          >
-            {showRopes ? '✓线' : '线'}
-          </button>
-          <button
-            className="top-bar-btn"
-            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
-            onClick={() => !isDisplayLocked && onShowArrowsChange(!showArrows)}
-            disabled={isDisplayLocked}
-            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换箭头显示'}
-          >
-            {showArrows ? '✓箭头' : '箭头'}
-          </button>
-          <button
-            className="top-bar-btn"
-            style={{ fontSize: '11px', padding: '4px 8px', opacity: isDisplayLocked ? 0.5 : 1, cursor: isDisplayLocked ? 'not-allowed' : 'pointer' }}
-            onClick={() => !isDisplayLocked && onShowDTextChange(!showDText)}
-            disabled={isDisplayLocked}
-            title={isDisplayLocked ? '构型编辑模式下已锁定显示' : '切换D文本显示'}
-          >
-            {showDText ? '✓D' : 'D'}
-          </button>
-        </div>
         <button className="top-bar-btn" onClick={onToggleRopeOverlay}>
           {showRopeOverlay ? '隐藏线段' : '显示线段'}
         </button>

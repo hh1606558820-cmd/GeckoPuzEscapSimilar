@@ -37,17 +37,25 @@ export const LevelIOButtons: React.FC<LevelIOButtonsProps> = ({
     // 执行校验
     const result = validateLevel(levelData);
 
+    // 如果有错误，阻止生成
     if (!result.isValid) {
-      // 校验失败，显示错误信息
       const errorMessage = result.errors.join('\n');
       alert(`关卡校验失败：\n\n${errorMessage}\n\n请修复后重试。`);
       return;
+    }
+    
+    // 如果有警告，允许生成但提示
+    if (result.warnings.length > 0) {
+      const warningMessage = result.warnings.join('\n');
+      alert(`⚠ 警告：${warningMessage}\n\n已继续生成关卡文件。`);
     }
 
     // 校验通过，生成并下载 JSON
     try {
       downloadLevelJson(levelData);
-      alert('关卡文件已成功生成并下载！');
+      if (result.warnings.length === 0) {
+        alert('关卡文件已成功生成并下载！');
+      }
     } catch (error) {
       alert('生成文件失败，请重试。');
       console.error('生成文件失败:', error);
@@ -77,18 +85,31 @@ export const LevelIOButtons: React.FC<LevelIOButtonsProps> = ({
 
     try {
       // 读取并解析文件
-      const result = await readLevelJson(file);
+      const loadedLevelData = await readLevelJson(file);
       
-      // 如果有警告信息，先显示警告
+      // 读取后进行校验
+      const result = validateLevel(loadedLevelData);
+      
+      // 如果有错误，阻止加载
+      if (!result.isValid) {
+        const errorMessage = result.errors.join('\n');
+        alert(`关卡校验失败：\n\n${errorMessage}\n\n请修复后重试。`);
+        e.target.value = '';
+        return;
+      }
+      
+      // 如果有警告，允许加载但提示
       if (result.warnings.length > 0) {
         const warningMessage = result.warnings.join('\n');
-        alert(`关卡文件读取成功，但有警告：\n\n${warningMessage}`);
-      } else {
-        alert('关卡文件读取成功！');
+        alert(`⚠ 警告：${warningMessage}\n\n已继续加载关卡文件。`);
       }
       
       // 加载成功，通知父组件
-      onLevelDataLoad(result.levelData);
+      onLevelDataLoad(loadedLevelData);
+      
+      if (result.warnings.length === 0) {
+        alert('关卡文件读取成功！');
+      }
     } catch (error) {
       // 读取失败，显示错误信息
       const errorMessage = error instanceof Error ? error.message : '未知错误';

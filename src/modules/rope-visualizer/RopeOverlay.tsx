@@ -19,7 +19,6 @@
 import React, { useMemo } from 'react';
 import { LevelData } from '@/types/Level';
 import { indexToCenter } from './geometry';
-import { getRopeColor } from '@/shared/ropeColors';
 import './RopeOverlay.css';
 
 // 基础线条粗细和箭头大小（视觉不变的值）
@@ -55,8 +54,6 @@ interface RopeOverlayProps {
   zoom?: number; // 缩放比例，默认 1.0
   showRopeOverlay: boolean;
   selectedRopeIndex?: number | null;
-  showArrows?: boolean;
-  showDText?: boolean;
 }
 
 export const RopeOverlay: React.FC<RopeOverlayProps> = ({
@@ -65,8 +62,6 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
   zoom = 1.0,
   showRopeOverlay,
   selectedRopeIndex = null,
-  showArrows = false,
-  showDText = false,
 }) => {
   // 如果 MapX === 0 或 MapY === 0，不渲染 overlay
   if (levelData.MapX === 0 || levelData.MapY === 0) {
@@ -93,16 +88,8 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
 
       // 判断是否是选中的 Rope（用于高亮显示）
       const isSelected = selectedRopeIndex !== null && ropeIndex === selectedRopeIndex;
-      const hasFocus = selectedRopeIndex !== null; // 是否有聚焦的Rope
-      
-      // 任务4：Rope聚焦 - 选中Rope后其他变淡
-      const opacity = hasFocus ? (isSelected ? 1.0 : 0.2) : 1.0;
-      const currentStrokeWidth = isSelected 
-        ? BASE_STROKE / zoom + 1 / zoom 
-        : (hasFocus ? BASE_STROKE / zoom * 0.6 : BASE_STROKE / zoom); // 非选中Rope在聚焦时线条更细
-      
-      // 根据 ColorIdx 获取颜色
-      const { stroke: strokeColor } = getRopeColor(rope.ColorIdx);
+      const currentStrokeWidth = isSelected ? BASE_STROKE / zoom + 1 / zoom : BASE_STROKE / zoom;
+      const strokeColor = 'red';
 
       // 将 Index 数组转换为像素坐标点（使用 baseCellSize，不乘 zoom，因为 wrapper 已整体缩放）
       const points: Array<{ cx: number; cy: number }> = rope.Index.map((index) =>
@@ -125,21 +112,21 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
             stroke={strokeColor}
             strokeWidth={currentStrokeWidth}
             strokeLinecap="round"
-            opacity={opacity}
           />
         );
       }
 
       // 在头部格子 H 绘制箭头，方向按 D（头部朝向）
       // 严格使用 rope.H 和 rope.D，不从 Index 推导
-      // 任务4：只有选中的Rope或没有聚焦时才显示箭头
-      const shouldShowArrow = showArrows && (isSelected || !hasFocus);
-      if (shouldShowArrow && rope.D >= 1 && rope.D <= 4) {
+      if (rope.D >= 1 && rope.D <= 4) {
         // 箭头位置：使用 rope.H
         const p = indexToCenter(rope.H, levelData.MapX, levelData.MapY, cellSize);
         
         // 箭头方向向量：使用 rope.D
         const v = dirToScreenVec(rope.D);
+        
+        // 调试：打印方向向量
+        console.log('TEST VEC', rope.H, rope.D, v);
         
         // 箭头尺寸（视觉不变，除以 zoom）
         const L = BASE_ARROW_LENGTH / zoom; // 箭头长度
@@ -164,6 +151,23 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
         const rightX = baseX - nx * (W / 2);
         const rightY = baseY - ny * (W / 2);
         
+        // 调试：绘制方向测试短线（蓝色，从 p 到 p + v * (30/zoom)）
+        const debugRayLength = 30 / zoom;
+        const debugRayEndX = p.cx + v.dx * debugRayLength;
+        const debugRayEndY = p.cy + v.dy * debugRayLength;
+        elements.push(
+          <line
+            key={`rope-${ropeIndex}-debug-ray`}
+            x1={p.cx}
+            y1={p.cy}
+            x2={debugRayEndX}
+            y2={debugRayEndY}
+            stroke="blue"
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        );
+        
         // 绘制主干线：从 p 到 baseCenter
         elements.push(
           <line
@@ -175,7 +179,6 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
             stroke={strokeColor}
             strokeWidth={currentStrokeWidth}
             strokeLinecap="round"
-            opacity={opacity}
           />
         );
         
@@ -185,31 +188,28 @@ export const RopeOverlay: React.FC<RopeOverlayProps> = ({
             key={`rope-${ropeIndex}-arrow-head`}
             points={`${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`}
             fill={strokeColor}
-            opacity={opacity}
           />
         );
         
-        // 显示 D 文本（如果启用）
-        if (showDText) {
-          elements.push(
-            <text
-              key={`rope-${ropeIndex}-d-text`}
-              x={p.cx + 15}
-              y={p.cy}
-              fill={strokeColor}
-              fontSize={12 / zoom}
-              fontWeight="bold"
-              style={{ pointerEvents: 'none' }}
-            >
-              D={rope.D}
-            </text>
-          );
-        }
+        // 临时调试显示：在头部格子中心旁显示 D 值
+        elements.push(
+          <text
+            key={`rope-${ropeIndex}-debug-d`}
+            x={p.cx + 15}
+            y={p.cy}
+            fill="blue"
+            fontSize="12"
+            fontWeight="bold"
+            style={{ pointerEvents: 'none' }}
+          >
+            D={rope.D}
+          </text>
+        );
       }
     });
 
     return elements;
-  }, [levelData.Rope, levelData.MapX, levelData.MapY, cellSize, zoom, showRopeOverlay, selectedRopeIndex, showArrows, showDText]);
+  }, [levelData.Rope, levelData.MapX, levelData.MapY, cellSize, zoom, showRopeOverlay, selectedRopeIndex]);
 
   if (!showRopeOverlay) {
     return null;

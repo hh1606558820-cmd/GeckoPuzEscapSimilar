@@ -30,12 +30,8 @@ import { getDefaultColorIdx } from '@/modules/rope-color-pool';
 import { TopBar } from './layout/TopBar';
 import { ResizableSidebar } from './layout/ResizableSidebar';
 import { RightJsonPanel } from './layout/RightJsonPanel';
-import { AutoFillDialog, autoFillIrregular, type AutoFillConfig } from '@/modules/auto-fill';
 import './App.css';
 import './layout/layout.css';
-
-// 编辑器模式枚举
-export type EditorMode = 'VIEW' | 'ROPE_EDIT' | 'MASK_EDIT';
 
 export const App: React.FC = () => {
   // 关卡数据（最终 JSON 格式）
@@ -48,30 +44,15 @@ export const App: React.FC = () => {
   // 编辑器内部状态：选中的格子索引数组（地图生成器用）
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
-  // 构型编辑相关状态（独立于普通选择）
-  const [maskIndices, setMaskIndices] = useState<number[]>([]);
-
-  // 编辑器模式（统一的状态管理）
-  const [mode, setMode] = useState<EditorMode>('VIEW');
-
   // Rope 编辑相关状态（模块2）
   const [currentRopeIndex, setCurrentRopeIndex] = useState<number>(-1); // -1 表示未选择
+  const [isRopeEditing, setIsRopeEditing] = useState<boolean>(false);
   const [currentEditingPath, setCurrentEditingPath] = useState<number[]>([]); // 临时编辑路径
-
-  // 计算派生状态（从 mode 推导）
-  const isRopeEditing = mode === 'ROPE_EDIT';
-  const isMaskEditing = mode === 'MASK_EDIT';
 
   // Rope 管理相关状态（模块3）
   const [selectedRopeIndex, setSelectedRopeIndex] = useState<number | null>(null); // 管理面板选中的 Rope
 
-  // 显示控制状态（任务1）
-  const [showMask, setShowMask] = useState<boolean>(true);
-  const [showRopes, setShowRopes] = useState<boolean>(true);
-  const [showArrows, setShowArrows] = useState<boolean>(false);
-  const [showDText, setShowDText] = useState<boolean>(false);
-
-  // Rope 可视化相关状态（模块4，保留兼容性）
+  // Rope 可视化相关状态（模块4）
   const [showRopeOverlay, setShowRopeOverlay] = useState<boolean>(true); // 是否显示 Rope 线段/箭头
 
   // 布局相关状态
@@ -80,10 +61,6 @@ export const App: React.FC = () => {
 
   // 网格缩放状态
   const [zoom, setZoom] = useState<number>(1.0); // 缩放比例，默认 1.0，范围 0.5~2.0
-
-  // 自动填充相关状态
-  const [showAutoFillDialog, setShowAutoFillDialog] = useState<boolean>(false);
-
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -96,39 +73,6 @@ export const App: React.FC = () => {
       setSelectedIndices(validIndices);
     }
   }, [levelData.MapX, levelData.MapY]);
-
-  // 任务1：MASK_EDIT 模式下锁定显示状态
-  useEffect(() => {
-    if (isMaskEditing) {
-      setShowMask(true);
-      setShowRopes(false);
-      setShowArrows(false);
-      setShowDText(false);
-    }
-  }, [isMaskEditing]);
-
-  // 任务2：缩放等级自动降噪（仅在非 MASK_EDIT 模式下生效）
-  useEffect(() => {
-    if (isMaskEditing) return; // 构型编辑模式已锁定，不自动调整
-
-    if (zoom < 0.7) {
-      setShowRopes(false);
-      setShowArrows(false);
-      setShowDText(false);
-    } else if (zoom < 1.0) {
-      setShowRopes(true);
-      setShowArrows(false);
-      setShowDText(false);
-    } else if (zoom < 1.3) {
-      setShowRopes(true);
-      setShowArrows(true);
-      setShowDText(false);
-    } else {
-      setShowRopes(true);
-      setShowArrows(true);
-      setShowDText(true);
-    }
-  }, [zoom, isMaskEditing]);
 
   // 处理地图尺寸变更
   const handleMapSizeChange = (MapX: number, MapY: number) => {
@@ -157,11 +101,10 @@ export const App: React.FC = () => {
 
     // 清空 UI 状态
     setSelectedIndices([]);
-    setMaskIndices([]);
     setCurrentRopeIndex(-1);
+    setIsRopeEditing(false);
     setCurrentEditingPath([]);
     setSelectedRopeIndex(null);
-    setMode('VIEW');
   };
 
   // 处理选择变更（地图生成器用）
@@ -174,7 +117,7 @@ export const App: React.FC = () => {
   // 处理 Rope 选择
   const handleRopeSelect = (index: number) => {
     setCurrentRopeIndex(index);
-    setMode('VIEW');
+    setIsRopeEditing(false);
     setCurrentEditingPath([]);
   };
 
@@ -208,17 +151,13 @@ export const App: React.FC = () => {
         Rope: newRopes,
       });
 
-      setMode('VIEW');
+      setIsRopeEditing(false);
       setCurrentEditingPath([]);
     } else {
       // 开始编辑：初始化编辑路径为当前 Rope 的路径
-      // 如果正在构型编辑模式，先退出构型编辑模式
-      if (isMaskEditing) {
-        setMode('VIEW');
-      }
       const currentRope = levelData.Rope[currentRopeIndex];
       setCurrentEditingPath([...currentRope.Index]);
-      setMode('ROPE_EDIT');
+      setIsRopeEditing(true);
     }
   };
 
@@ -268,7 +207,7 @@ export const App: React.FC = () => {
       // 如果删除的是当前选中的 Rope，重置选择
       if (currentRopeIndex === index) {
         setCurrentRopeIndex(-1);
-        setMode('VIEW');
+        setIsRopeEditing(false);
         setCurrentEditingPath([]);
       } else if (currentRopeIndex > index) {
         // 如果删除的 Rope 在当前选中之前，需要调整索引
@@ -285,11 +224,6 @@ export const App: React.FC = () => {
     }
 
     if (!isRopeEditing || currentRopeIndex < 0) {
-      return;
-    }
-
-    // 构型限制：构型外格子不可参与 Rope 编辑（仅在退出构型编辑模式且 maskIndices 不为空时）
-    if (!isMaskEditing && maskIndices.length > 0 && !maskIndices.includes(index)) {
       return;
     }
 
@@ -322,8 +256,8 @@ export const App: React.FC = () => {
 
   // 处理 Rope 命中（点击网格中的 Rope 路径）
   const handleRopeHit = (ropeIndex: number) => {
-    // Toggle 逻辑：如果点击的是已选中的 Rope，则取消选中；否则选中该 Rope
-    setSelectedRopeIndex((prev) => (prev === ropeIndex ? null : ropeIndex));
+    // 设置选中的 Rope，打开管理面板
+    setSelectedRopeIndex(ropeIndex);
   };
 
   // 处理 Rope 属性更新（模块3：管理面板）
@@ -372,7 +306,7 @@ export const App: React.FC = () => {
     if (currentRopeIndex === ropeIndex) {
       // 如果删除的是正在编辑的 Rope，重置编辑状态
       setCurrentRopeIndex(-1);
-      setMode('VIEW');
+      setIsRopeEditing(false);
       setCurrentEditingPath([]);
     } else if (currentRopeIndex > ropeIndex) {
       // 如果删除的 Rope 在当前编辑之前，需要调整索引
@@ -401,94 +335,10 @@ export const App: React.FC = () => {
 
     // 清空所有选择状态（避免脏状态）
     setSelectedIndices([]);
-    setMaskIndices([]);
     setSelectedRopeIndex(null);
     setCurrentRopeIndex(-1);
+    setIsRopeEditing(false);
     setCurrentEditingPath([]);
-    setMode('VIEW');
-  };
-
-  // ========== 构型编辑相关处理函数 ==========
-
-  // 切换构型编辑模式
-  const handleToggleMaskEditing = () => {
-    // 如果 MapX === 0 或 MapY === 0，不允许进入构型编辑模式
-    if (levelData.MapX === 0 || levelData.MapY === 0) {
-      alert('地图尺寸为 0 时不能进入构型编辑模式');
-      return;
-    }
-    if (isMaskEditing) {
-      // 退出构型编辑模式
-      setMode('VIEW');
-    } else {
-      // 进入构型编辑模式：如果正在编辑 Rope，先退出 Rope 编辑模式
-      if (isRopeEditing) {
-        // 结束编辑：保存路径到 Rope
-        const currentRope = levelData.Rope[currentRopeIndex];
-        const updatedRope = calculateRopeFields(
-          currentEditingPath,
-          levelData.MapX,
-          currentRope
-        );
-
-        const newRopes = [...levelData.Rope];
-        newRopes[currentRopeIndex] = updatedRope;
-
-        setLevelData({
-          ...levelData,
-          Rope: newRopes,
-        });
-
-        setCurrentEditingPath([]);
-      }
-      setMode('MASK_EDIT');
-    }
-  };
-
-  // ========== 自动填充相关处理函数 ==========
-
-  // 打开自动填充弹窗
-  const handleOpenAutoFill = () => {
-    // 检查是否有构型（maskIndices）
-    if (maskIndices.length === 0) {
-      alert('请先编辑构型（选择可用格子），然后再使用自动填充功能。');
-      return;
-    }
-    setShowAutoFillDialog(true);
-  };
-
-  // 处理自动填充生成
-  const handleAutoFillGenerate = (config: AutoFillConfig) => {
-    // 将 maskIndices 转换为 Set（shapeMask）
-    const shapeMask = new Set(maskIndices);
-    
-    // 调用自动填充算法
-    const result = autoFillIrregular(
-      shapeMask,
-      config.overwriteExisting ? [] : levelData.Rope,
-      levelData.MapX,
-      levelData.MapY,
-      config
-    );
-
-    // 处理错误
-    if (result.errors.length > 0) {
-      alert(`自动填充失败：\n\n${result.errors.join('\n')}`);
-      return;
-    }
-
-    // 更新 levelData
-    setLevelData({
-      ...levelData,
-      Rope: result.ropes,
-    });
-
-    // 显示警告（如果有）
-    if (result.warnings.length > 0) {
-      alert(`自动填充完成：\n\n${result.warnings.join('\n')}`);
-    } else {
-      alert(`自动填充完成！生成了 ${result.ropes.length} 条 Rope。`);
-    }
   };
 
   return (
@@ -498,22 +348,11 @@ export const App: React.FC = () => {
         showRopeOverlay={showRopeOverlay}
         showJsonPanel={showJsonPanel}
         selectedRopeIndex={selectedRopeIndex}
-        mode={mode}
-        showMask={showMask}
-        showRopes={showRopes}
-        showArrows={showArrows}
-        showDText={showDText}
-        onShowMaskChange={setShowMask}
-        onShowRopesChange={setShowRopes}
-        onShowArrowsChange={setShowArrows}
-        onShowDTextChange={setShowDText}
+        isEditingRopePath={isRopeEditing}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
-        onOpenAutoFill={handleOpenAutoFill}
-        onToggleMaskEditing={handleToggleMaskEditing}
-        onModeChange={setMode}
       />
       
       <div className="app-layout">
@@ -555,19 +394,12 @@ export const App: React.FC = () => {
             onSelectionChange={handleSelectionChange}
             allRopes={levelData.Rope}
             currentEditingPath={currentEditingPath}
-            mode={mode}
-            maskIndices={maskIndices}
-            onMaskChange={setMaskIndices}
+            isRopeEditing={isRopeEditing}
             onCellClick={handleCellClick}
             selectedRopeIndex={selectedRopeIndex}
             onRopeHit={handleRopeHit}
-            onRopeUnselect={() => setSelectedRopeIndex(null)}
             levelData={levelData}
             showRopeOverlay={showRopeOverlay}
-            showMask={showMask}
-            showRopes={showRopes}
-            showArrows={showArrows}
-            showDText={showDText}
             zoom={zoom}
             onZoomChange={setZoom}
           />
@@ -582,13 +414,6 @@ export const App: React.FC = () => {
           topBarHeight={60}
         />
       )}
-
-      {/* 自动填充弹窗 */}
-      <AutoFillDialog
-        isOpen={showAutoFillDialog}
-        onClose={() => setShowAutoFillDialog(false)}
-        onGenerate={handleAutoFillGenerate}
-      />
     </div>
   );
 };

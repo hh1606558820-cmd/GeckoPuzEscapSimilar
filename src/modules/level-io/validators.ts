@@ -14,7 +14,6 @@
 
 import { LevelData } from '@/types/Level';
 import { isAdjacent } from '@/modules/rope-editor/ropeLogic';
-import { MAP_MIN, MAP_MAX } from '@/shared/constants';
 
 /**
  * 校验结果接口
@@ -22,6 +21,7 @@ import { MAP_MIN, MAP_MAX } from '@/shared/constants';
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
+  warnings: string[];
 }
 
 /**
@@ -229,13 +229,13 @@ export function validateMapSize(levelData: LevelData): string[] {
   const { MapX, MapY, Rope } = levelData;
 
   // 校验 MapX 范围
-  if (typeof MapX !== 'number' || MapX < MAP_MIN || MapX > MAP_MAX) {
-    errors.push(`MapX 无效：必须是 ${MAP_MIN}~${MAP_MAX} 之间的数字，当前为 ${MapX}`);
+  if (typeof MapX !== 'number' || MapX < 0 || MapX > 100) {
+    errors.push(`MapX 无效：必须是 0~100 之间的数字，当前为 ${MapX}`);
   }
 
   // 校验 MapY 范围
-  if (typeof MapY !== 'number' || MapY < MAP_MIN || MapY > MAP_MAX) {
-    errors.push(`MapY 无效：必须是 ${MAP_MIN}~${MAP_MAX} 之间的数字，当前为 ${MapY}`);
+  if (typeof MapY !== 'number' || MapY < 0 || MapY > 100) {
+    errors.push(`MapY 无效：必须是 0~100 之间的数字，当前为 ${MapY}`);
   }
 
   // 如果 MapX === 0 或 MapY === 0，检查 Rope 数量
@@ -250,10 +250,11 @@ export function validateMapSize(levelData: LevelData): string[] {
  * 执行所有校验规则
  * 
  * @param levelData 关卡数据
- * @returns 校验结果（包含是否通过和所有错误信息）
+ * @returns 校验结果（包含是否通过、错误信息和警告信息）
  */
 export function validateLevel(levelData: LevelData): ValidationResult {
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   // 首先校验 MapX/MapY 范围
   errors.push(...validateMapSize(levelData));
@@ -266,14 +267,16 @@ export function validateLevel(levelData: LevelData): ValidationResult {
     errors.push(...validateRopePaths(levelData));
   }
 
-  // Rule C：校验可移动性（仅在 Rule A 和 Rule B 通过时检查）
+  // Rule C：校验可移动性（改为警告，不阻止生成/读取）
+  // 仅在 errors 为空且 MapX/MapY>0 时执行，避免噪音
   if (errors.length === 0 && levelData.MapX > 0 && levelData.MapY > 0) {
-    errors.push(...validateRopeMovability(levelData));
+    warnings.push(...validateRopeMovability(levelData));
   }
 
   return {
     isValid: errors.length === 0,
     errors,
+    warnings,
   };
 }
 

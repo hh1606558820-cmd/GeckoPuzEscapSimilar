@@ -1,17 +1,8 @@
 /**
- * 模块：全局常量定义 (constants)
- * 
- * 职责：
- * - 集中管理全局常量，避免硬编码
- * - 确保生成/读取/UI 使用同一套常量
- * 
- * 输入：无
- * 输出：导出的常量供其他模块使用
+ * 共享常量
  */
 
-/**
- * 地图尺寸范围常量
- */
-export const MAP_MIN = 0;   // 地图最小尺寸
-export const MAP_MAX = 100; // 地图最大尺寸
+// 地图尺寸范围
+export const MAP_MIN = 1;
+export const MAP_MAX = 50;
 
