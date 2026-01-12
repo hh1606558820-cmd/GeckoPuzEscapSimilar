@@ -30,6 +30,8 @@ interface TopBarProps {
   showJsonPanel: boolean;
   selectedRopeIndex: number | null;
   isEditingRopePath: boolean;
+  levelName: string;
+  onLevelNameChange: (name: string) => void;
   onLevelDataLoad: (levelData: LevelData) => void;
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
@@ -42,6 +44,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   showJsonPanel,
   selectedRopeIndex,
   isEditingRopePath,
+  levelName,
+  onLevelNameChange,
   onLevelDataLoad,
   onToggleRopeOverlay,
   onToggleJsonPanel,
@@ -67,7 +71,12 @@ export const TopBar: React.FC<TopBarProps> = ({
     }
     
     try {
-      downloadLevelJson(levelData);
+      // 清理文件名：替换非法字符
+      const sanitizedName = levelName.trim() || 'level';
+      const cleanFileName = sanitizedName.replace(/[\\/:*?"<>|]+/g, '_');
+      const filename = `${cleanFileName}.json`;
+      
+      downloadLevelJson(levelData, filename);
       if (result.warnings.length === 0) {
         alert('关卡文件已成功生成并下载！');
       }
@@ -113,6 +122,12 @@ export const TopBar: React.FC<TopBarProps> = ({
         alert(`⚠ 警告：${warningMessage}\n\n已继续加载关卡文件。`);
       }
       
+      // 如果输入框为空，从文件名回填（可选）
+      if (!levelName.trim()) {
+        const fileNameWithoutExt = file.name.replace(/\.json$/i, '');
+        onLevelNameChange(fileNameWithoutExt);
+      }
+      
       onLevelDataLoad(loadedLevelData);
       
       if (result.warnings.length === 0) {
@@ -143,6 +158,22 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
       <div className="top-bar-right">
+        <div className="top-bar-filename-input" style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px' }}>
+          <label style={{ marginRight: '4px', fontSize: '14px' }}>文件名:</label>
+          <input
+            type="text"
+            value={levelName}
+            onChange={(e) => onLevelNameChange(e.target.value)}
+            style={{
+              padding: '4px 8px',
+              fontSize: '14px',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              width: '120px'
+            }}
+            placeholder="level"
+          />
+        </div>
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>

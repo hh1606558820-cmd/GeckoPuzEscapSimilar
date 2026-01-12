@@ -62,6 +62,9 @@ export const App: React.FC = () => {
   // 网格缩放状态
   const [zoom, setZoom] = useState<number>(1.0); // 缩放比例，默认 1.0，范围 0.5~2.0
 
+  // 关卡文件名状态
+  const [levelName, setLevelName] = useState<string>('level');
+
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
     const validIndices = filterValidIndices(
@@ -256,8 +259,8 @@ export const App: React.FC = () => {
 
   // 处理 Rope 命中（点击网格中的 Rope 路径）
   const handleRopeHit = (ropeIndex: number) => {
-    // 设置选中的 Rope，打开管理面板
-    setSelectedRopeIndex(ropeIndex);
+    // Toggle 逻辑：如果点击的是已选中的 Rope，则取消选中；否则选中该 Rope
+    setSelectedRopeIndex((prev) => (prev === ropeIndex ? null : ropeIndex));
   };
 
   // 处理 Rope 属性更新（模块3：管理面板）
@@ -349,6 +352,8 @@ export const App: React.FC = () => {
         showJsonPanel={showJsonPanel}
         selectedRopeIndex={selectedRopeIndex}
         isEditingRopePath={isRopeEditing}
+        levelName={levelName}
+        onLevelNameChange={setLevelName}
         onLevelDataLoad={handleLevelDataLoad}
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}

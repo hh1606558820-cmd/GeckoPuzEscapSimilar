@@ -187,7 +187,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({
       // 使用 hitTestRope 函数检测命中（支持多 Rope 命中处理）
       const hitRopeIndex = hitTestRope(index, allRopes);
       if (hitRopeIndex !== null) {
-        // 命中 Rope，通知父组件
+        // 命中 Rope，通知父组件（toggle 逻辑在父组件中处理）
         onRopeHit(hitRopeIndex);
         return; // 命中后不再执行地图生成器的选择逻辑
       }
