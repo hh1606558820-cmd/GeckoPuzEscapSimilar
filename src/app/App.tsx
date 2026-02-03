@@ -27,6 +27,8 @@ import {
   updateRopeProperties,
 } from '@/modules/rope-manager/ropeMutations';
 import { getDefaultColorIdx } from '@/modules/rope-color-pool';
+import { autoFillRopes } from '@/modules/auto-fill/autoFillRopes';
+import { loadAutoFillConfig, saveAutoFillConfig, AutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import { TopBar } from './layout/TopBar';
 import { ResizableSidebar } from './layout/ResizableSidebar';
 import { RightJsonPanel } from './layout/RightJsonPanel';
@@ -69,6 +71,9 @@ export const App: React.FC = () => {
   // 关卡文件名状态
   const [levelName, setLevelName] = useState<string>('level');
   const [isLevelNameDirty, setIsLevelNameDirty] = useState<boolean>(false);
+
+  // 自动填充配置状态
+  const [autoFillConfig, setAutoFillConfig] = useState<AutoFillConfig>(loadAutoFillConfig());
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -400,6 +405,49 @@ export const App: React.FC = () => {
     setIsLevelNameDirty(false);
   };
 
+  // 处理自动填充
+  const handleAutoFill = () => {
+    // 检查地图尺寸
+    if (levelData.MapX === 0 || levelData.MapY === 0) {
+      alert('请先配置地图尺寸');
+      return;
+    }
+
+    // 检查构型编辑模式
+    if (isMaskEditing) {
+      alert('请先退出构型编辑模式后再自动填充');
+      return;
+    }
+
+    // 确定可用格子集合：如果 mask 为空，使用全图
+    const total = levelData.MapX * levelData.MapY;
+    const fillableIndices =
+      maskIndices && maskIndices.length > 0
+        ? maskIndices
+        : Array.from({ length: total }, (_, i) => i);
+
+    // 调用自动填充生成 Rope（使用当前配置）
+    const generatedRopes = autoFillRopes({
+      MapX: levelData.MapX,
+      MapY: levelData.MapY,
+      maskIndices: fillableIndices,
+      config: autoFillConfig,
+    });
+
+    if (generatedRopes.length === 0) {
+      alert('自动填充失败：无法生成有效的 Rope 路径');
+      return;
+    }
+
+    // 将生成的 Rope 添加到现有 Rope 列表
+    setLevelData((prev) => ({
+      ...prev,
+      Rope: [...prev.Rope, ...generatedRopes],
+    }));
+
+    // 不改变其他状态（文件名、显示选项、焦点状态等）
+  };
+
   return (
     <div className="app">
       <TopBar
@@ -421,6 +469,13 @@ export const App: React.FC = () => {
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
+        onAutoFill={handleAutoFill}
+        maskIndices={maskIndices}
+        autoFillConfig={autoFillConfig}
+        onAutoFillConfigChange={(newConfig) => {
+          saveAutoFillConfig(newConfig);
+          setAutoFillConfig(newConfig);
+        }}
       />
       
       <div className="app-layout">

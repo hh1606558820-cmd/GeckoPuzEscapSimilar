@@ -1,0 +1,195 @@
+.auto-fill-config-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.auto-fill-config-dialog {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.auto-fill-config-dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f9f9f9;
+}
+
+.auto-fill-config-dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.auto-fill-config-dialog-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.auto-fill-config-dialog-close:hover {
+  background-color: #e0e0e0;
+}
+
+.auto-fill-config-dialog-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.auto-fill-config-section {
+  margin-bottom: 24px;
+}
+
+.auto-fill-config-info {
+  padding: 12px;
+  background-color: #f0f7ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.auto-fill-config-info p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.auto-fill-config-section:last-child {
+  margin-bottom: 0;
+}
+
+.auto-fill-config-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.auto-fill-config-field {
+  margin-bottom: 16px;
+}
+
+.auto-fill-config-field:last-child {
+  margin-bottom: 0;
+}
+
+.auto-fill-config-field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.auto-fill-config-field label span:first-child {
+  min-width: 150px;
+  font-weight: 500;
+}
+
+.auto-fill-config-field input[type="number"],
+.auto-fill-config-field input[type="text"],
+.auto-fill-config-field select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.auto-fill-config-field input[type="number"]:focus,
+.auto-fill-config-field input[type="text"]:focus,
+.auto-fill-config-field select:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.auto-fill-config-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.auto-fill-config-error {
+  display: block;
+  color: #f44336;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-left: 158px;
+}
+
+.auto-fill-config-hint {
+  display: block;
+  color: #666;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-left: 158px;
+  font-style: italic;
+}
+
+.auto-fill-config-dialog-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background-color: #f9f9f9;
+}
+
+.auto-fill-config-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.auto-fill-config-btn-secondary {
+  background-color: #fff;
+  color: #333;
+}
+
+.auto-fill-config-btn-secondary:hover {
+  background-color: #f5f5f5;
+}
+
+.auto-fill-config-btn-primary {
+  background-color: #2196f3;
+  color: white;
+  border-color: #2196f3;
+}
+
+.auto-fill-config-btn-primary:hover {
+  background-color: #1976d2;
+}

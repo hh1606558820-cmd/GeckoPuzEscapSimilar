@@ -18,11 +18,14 @@
  * - 渲染顶部栏 UI
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
 import { sanitizeFileName } from '@/shared/utils';
+import { AutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
+import { AutoFillConfigDialog } from '@/modules/auto-fill/AutoFillConfigDialog';
+import { DEFAULT_AUTO_FILL_CONFIG, saveAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import './layout.css';
 
 interface TopBarProps {
@@ -41,6 +44,10 @@ interface TopBarProps {
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
   onClearLevel: () => void;
+  onAutoFill: () => void;
+  maskIndices: number[];
+  autoFillConfig: AutoFillConfig;
+  onAutoFillConfigChange: (config: AutoFillConfig) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -59,8 +66,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleRopeOverlay,
   onToggleJsonPanel,
   onClearLevel,
+  onAutoFill,
+  maskIndices,
+  autoFillConfig,
+  onAutoFillConfigChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
 
   // 处理生成关卡
   const handleGenerate = () => {
@@ -194,6 +206,40 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>
+        <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
+          <button 
+            className="top-bar-btn" 
+            onClick={onAutoFill}
+            disabled={levelData.MapX === 0 || levelData.MapY === 0}
+            title={levelData.MapX === 0 || levelData.MapY === 0 
+              ? '请先配置地图尺寸' 
+              : isMaskEditing 
+              ? '请先退出构型编辑模式后再自动填充' 
+              : maskIndices.length === 0
+              ? `自动填充 Rope 路径（范围：全图 ${levelData.MapX}×${levelData.MapY}）`
+              : `自动填充 Rope 路径（范围：构型格 ${maskIndices.length}）`}
+          >
+            自动填充
+            {maskIndices.length === 0 && levelData.MapX > 0 && levelData.MapY > 0 && (
+              <span style={{ fontSize: '10px', marginLeft: '4px', opacity: 0.7 }}>
+                (全图)
+              </span>
+            )}
+            {maskIndices.length > 0 && (
+              <span style={{ fontSize: '10px', marginLeft: '4px', opacity: 0.7 }}>
+                ({maskIndices.length})
+              </span>
+            )}
+          </button>
+          <button
+            className="top-bar-btn"
+            onClick={() => setShowConfigDialog(true)}
+            title="自动填充设置"
+            style={{ padding: '8px 12px', minWidth: 'auto' }}
+          >
+            ⚙
+          </button>
+        </div>
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
         </button>
@@ -217,6 +263,21 @@ export const TopBar: React.FC<TopBarProps> = ({
           style={{ display: 'none' }}
         />
       </div>
+      {showConfigDialog && (
+        <AutoFillConfigDialog
+          config={autoFillConfig}
+          maskCount={maskIndices.length}
+          onSave={(newConfig) => {
+            onAutoFillConfigChange(newConfig);
+            setShowConfigDialog(false);
+          }}
+          onCancel={() => setShowConfigDialog(false)}
+          onReset={() => {
+            onAutoFillConfigChange({ ...DEFAULT_AUTO_FILL_CONFIG });
+            saveAutoFillConfig(DEFAULT_AUTO_FILL_CONFIG);
+          }}
+        />
+      )}
     </header>
   );
 };
