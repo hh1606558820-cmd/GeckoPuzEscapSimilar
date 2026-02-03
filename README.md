@@ -30,6 +30,31 @@ npm run build
 npm preview
 ```
 
+### 打包为单机网页版
+
+想要打包成单机网页版，可以在没有网络的情况下使用？
+
+**Windows 用户**：
+```bash
+# 双击运行或在命令行执行
+package-offline.bat
+```
+
+**Linux/Mac 用户**：
+```bash
+chmod +x package-offline.sh
+./package-offline.sh
+```
+
+打包脚本会自动：
+1. 构建生产版本
+2. 检查必要文件
+3. 创建 ZIP 压缩包（包含所有文件）
+
+打包完成后，将 ZIP 文件解压到任意目录，双击 `start.bat`（Windows）即可启动本地服务器，在浏览器中打开 `http://localhost:3000` 使用。
+
+详细说明请查看：[离线打包说明](OFFLINE_BUILD.md)
+
 ### 部署到网页（分享给其他人使用）
 
 想要将这个编辑器部署到网上让其他人使用？查看部署指南：

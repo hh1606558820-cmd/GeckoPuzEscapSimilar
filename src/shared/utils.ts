@@ -53,4 +53,3 @@ export function sanitizeFileName(fileName: string): string {
   // 如果结果为空，返回默认值
   return cleaned || 'level';
 }
-
