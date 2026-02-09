@@ -25,6 +25,7 @@ import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
 import { sanitizeFileName } from '@/shared/utils';
 import { StoredAutoFillConfig, DEFAULT_AUTO_FILL_CONFIG, DEFAULT_PRESET_ID, saveAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import { AutoFillConfigDialog } from '@/modules/auto-fill/AutoFillConfigDialog';
+import { computeFirstBreakSteps } from '@/modules/difficulty/firstBreakSteps';
 import './layout.css';
 
 interface TopBarProps {
@@ -74,6 +75,12 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [difficultyScore, setDifficultyScore] = useState<number | null>(null);
+
+  const handleComputeDifficulty = () => {
+    const score = computeFirstBreakSteps(levelData);
+    setDifficultyScore(score);
+  };
 
   // 处理生成关卡
   const handleGenerate = () => {
@@ -207,6 +214,9 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button className="top-bar-btn" onClick={handleGenerate}>
           生成关卡
         </button>
+        <button className="top-bar-btn" onClick={handleRead}>
+          读取关卡
+        </button>
         <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
           <button 
             className="top-bar-btn" 
@@ -241,11 +251,14 @@ export const TopBar: React.FC<TopBarProps> = ({
             ⚙
           </button>
         </div>
+        <button className="top-bar-btn" onClick={handleComputeDifficulty} title="根据当前关卡计算 FirstBreakSteps 难度">
+          计算难度
+        </button>
+        <span style={{ fontSize: '14px', marginLeft: '4px' }}>
+          Difficulty: {difficultyScore !== null ? difficultyScore : '-'}
+        </span>
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
-        </button>
-        <button className="top-bar-btn" onClick={handleRead}>
-          读取关卡
         </button>
         <button className="top-bar-btn" onClick={onToggleMaskEditing}>
           {isMaskEditing ? '退出构型编辑' : '编辑构型'}
