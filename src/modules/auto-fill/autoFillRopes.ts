@@ -3,23 +3,30 @@
  * 
  * 职责：
  * - 根据构型格（maskIndices）自动生成 Rope 路径
- * - 使用生长式随机走算法（方式 A）
- * - 确保不生成回头 Rope（禁止 U-turn）
- * - 确保不生成头转弯 Rope（D 与 Index[0]->Index[1] 一致）
- * 
- * 输入：
- * - MapX, MapY: 地图尺寸
- * - maskIndices: 构型格集合（需要覆盖的格子）
- * - config: 配置选项（可选）
+ * - 支持 minRopes/maxRopes 区间与容量不足时降级（尽量填满）
  * 
  * 输出：
- * - RopeData[]: 生成的 Rope 数组
+ * - { ropes: RopeData[], fallbackHint?: string }
  */
 
 import { RopeData } from '@/types/Level';
 import { calculateDirection, Direction, calculateD, calculateH, calculateBendCount } from '@/modules/rope-editor/ropeLogic';
 import { indexToXY, xyToIndex } from '@/modules/rope-visualizer/geometry';
 import { AutoFillConfig, DEFAULT_AUTO_FILL_CONFIG } from './autoFillConfig';
+
+export interface AutoFillRopesResult {
+  ropes: RopeData[];
+  fallbackHint?: string;
+}
+
+/**
+ * 规范化可选整数：undefined/null/NaN => null，<0 => 0，小数 => floor
+ */
+function normalizeNullableInt(v: number | null | undefined): number | null {
+  if (v == null || typeof v !== 'number' || Number.isNaN(v)) return null;
+  const n = Math.floor(v);
+  return n < 0 ? 0 : n;
+}
 
 /**
  * Mulberry32 伪随机数生成器（用于 seed 复现）
@@ -170,16 +177,21 @@ function validateRope(path: number[], MapX: number, config: AutoFillConfig): boo
 
 /**
  * 留存约束后验校验（仅当 config 对应字段存在时检查）
- * 统计：可动数量、高拐弯占比、平均拐弯、最长主线长度
+ * 可选：数量区间（respect-range 时 ropes.length >= effectiveMinRopes）
  */
 function postValidate(
   config: AutoFillConfig,
   ropes: RopeData[],
   MapX: number,
-  MapY: number
+  MapY: number,
+  opts?: { effectiveMinRopes: number | null; mode: RopeCountMode }
 ): { ok: boolean } {
   if (ropes.length === 0) {
     return { ok: true };
+  }
+
+  if (opts?.mode === 'respect-range' && opts.effectiveMinRopes != null && ropes.length < opts.effectiveMinRopes) {
+    return { ok: false };
   }
 
   const maxIndex = MapX * MapY - 1;
@@ -339,27 +351,37 @@ function generateSingleRope(
 
 const POST_VALIDATE_MAX_ATTEMPTS = 40;
 
+export type RopeCountMode = 'fill-as-much-as-possible' | 'respect-range';
+
 /**
  * 单次生成（供重试调用）
+ * effectiveMaxRopes: 达到后立即停止；effectiveMinRopes + mode 用于“冲数量”时缩短单条 maxLen
  */
 function generateRopesOnce(
   MapX: number,
   MapY: number,
   fillableIndices: number[],
   finalConfig: AutoFillConfig,
-  random: () => number
+  random: () => number,
+  options: {
+    effectiveMaxRopes: number;
+    effectiveMinRopes: number | null;
+    mode: RopeCountMode;
+  }
 ): RopeData[] {
+  const { effectiveMaxRopes, effectiveMinRopes, mode } = options;
   const availableIndices = new Set(fillableIndices);
   const ropes: RopeData[] = [];
-  const isFullMapMode = fillableIndices.length === MapX * MapY;
-  const inferredMaxRopes = finalConfig.maxRopes ?? (isFullMapMode ? Math.ceil((MapX * MapY) / 20) : 100);
-  const maxRopes = inferredMaxRopes;
   const maxAttemptsPerRope = 50;
   let totalAttempts = 0;
 
-  while (availableIndices.size > 0 && ropes.length < maxRopes && totalAttempts < maxAttemptsPerRope * maxRopes) {
+  while (availableIndices.size > 0 && ropes.length < effectiveMaxRopes && totalAttempts < maxAttemptsPerRope * effectiveMaxRopes) {
     totalAttempts++;
-    const path = generateSingleRope(availableIndices, MapX, MapY, finalConfig, random);
+    const needRush = mode === 'respect-range' && effectiveMinRopes != null && ropes.length < effectiveMinRopes;
+    const useConfig = needRush
+      ? { ...finalConfig, maxLen: Math.min(finalConfig.maxLen, finalConfig.minLen + 2) }
+      : finalConfig;
+    const path = generateSingleRope(availableIndices, MapX, MapY, useConfig, random);
     if (!path) {
       if (totalAttempts > maxAttemptsPerRope * 10) break;
       continue;
@@ -371,7 +393,7 @@ function generateRopesOnce(
       BendCount: calculateBendCount(path, MapX),
       ColorIdx: -1,
     };
-    if (finalConfig.forbidHeadTurn && path.length >= 2) {
+    if (useConfig.forbidHeadTurn && path.length >= 2) {
       const firstSegmentDir = calculateDirection(path[0], path[1], MapX);
       if (firstSegmentDir === Direction.Invalid) continue;
       const expectedD = oppositeDirection(firstSegmentDir);
@@ -395,20 +417,24 @@ function generateRopesOnce(
 
 /**
  * 自动填充 Rope 生成主函数
- * 若配置了留存约束，则进行后验校验，不通过则重试（最多 POST_VALIDATE_MAX_ATTEMPTS 次）
+ * 支持 minRopes/maxRopes；容量不足时降级为尽量填满并返回 fallbackHint。
+ * 若配置了留存约束，则进行后验校验，不通过则重试（最多 POST_VALIDATE_MAX_ATTEMPTS 次）。
  */
 export function autoFillRopes(params: {
   MapX: number;
   MapY: number;
   maskIndices: number[];
   config?: AutoFillConfig;
-}): RopeData[] {
+}): AutoFillRopesResult {
   const { MapX, MapY, maskIndices, config = {} } = params;
 
   const finalConfig: AutoFillConfig = {
     ...DEFAULT_AUTO_FILL_CONFIG,
     ...config,
   };
+
+  const minRopes = normalizeNullableInt(finalConfig.minRopes);
+  const maxRopes = normalizeNullableInt(finalConfig.maxRopes);
 
   const seededRandom =
     finalConfig.seed !== null && finalConfig.seed !== undefined
@@ -417,7 +443,7 @@ export function autoFillRopes(params: {
   const random = seededRandom ? () => seededRandom.next() : Math.random;
 
   if (MapX === 0 || MapY === 0) {
-    return [];
+    return { ropes: [] };
   }
 
   const total = MapX * MapY;
@@ -427,14 +453,42 @@ export function autoFillRopes(params: {
       : Array.from({ length: total }, (_, i) => i);
 
   if (fillableIndices.length === 0) {
-    return [];
+    return { ropes: [] };
   }
+
+  const fillableCount = fillableIndices.length;
+  const minLen = finalConfig.minLen ?? 2;
+  const theoreticalMaxRopes = Math.floor(fillableCount / Math.max(2, minLen));
+
+  let effectiveMinRopes: number | null;
+  let mode: RopeCountMode;
+  let fallbackHint: string | undefined;
+
+  if (minRopes !== null && theoreticalMaxRopes < minRopes) {
+    effectiveMinRopes = null;
+    mode = 'fill-as-much-as-possible';
+    fallbackHint = `地图容量不足以生成至少 ${minRopes} 条 Rope，已自动改为尽量填满地图`;
+  } else {
+    effectiveMinRopes = minRopes;
+    mode = 'respect-range';
+  }
+
+  const isFullMapMode = fillableIndices.length === MapX * MapY;
+  const effectiveMaxRopes =
+    maxRopes != null ? maxRopes : isFullMapMode ? Math.ceil((MapX * MapY) / 20) : 100;
+
+  const ropeCountOptions = {
+    effectiveMaxRopes,
+    effectiveMinRopes,
+    mode,
+  };
 
   const hasPostConstraints =
     finalConfig.minMovableRopes != null ||
     finalConfig.maxHighBendRatio != null ||
     finalConfig.maxAvgBend != null ||
-    finalConfig.minMainRopeLen != null;
+    finalConfig.minMainRopeLen != null ||
+    (mode === 'respect-range' && effectiveMinRopes != null);
 
   let lastRopes: RopeData[] = [];
 
@@ -447,16 +501,34 @@ export function autoFillRopes(params: {
               return () => r.next();
             })()
           : random;
-      const ropes = generateRopesOnce(MapX, MapY, [...fillableIndices], finalConfig, attemptRandom);
+      const ropes = generateRopesOnce(
+        MapX,
+        MapY,
+        [...fillableIndices],
+        finalConfig,
+        attemptRandom,
+        ropeCountOptions
+      );
       lastRopes = ropes;
-      if (postValidate(finalConfig, ropes, MapX, MapY).ok) {
-        return ropes;
+      const pvOpts =
+        mode === 'respect-range' && effectiveMinRopes != null
+          ? { effectiveMinRopes, mode }
+          : undefined;
+      if (postValidate(finalConfig, ropes, MapX, MapY, pvOpts).ok) {
+        return { ropes, fallbackHint };
       }
     }
     console.warn('本次自动填充未满足全部留存约束，已使用最接近结果');
-    return lastRopes;
+    return { ropes: lastRopes, fallbackHint };
   }
 
-  lastRopes = generateRopesOnce(MapX, MapY, fillableIndices, finalConfig, random);
-  return lastRopes;
+  lastRopes = generateRopesOnce(
+    MapX,
+    MapY,
+    fillableIndices,
+    finalConfig,
+    random,
+    ropeCountOptions
+  );
+  return { ropes: lastRopes, fallbackHint };
 }

@@ -47,6 +47,7 @@ interface TopBarProps {
   maskIndices: number[];
   autoFillConfig: StoredAutoFillConfig;
   onAutoFillConfigChange: (config: StoredAutoFillConfig) => void;
+  autoFillFallbackHint?: string | null;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -69,6 +70,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   maskIndices,
   autoFillConfig,
   onAutoFillConfigChange,
+  autoFillFallbackHint,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
@@ -262,6 +264,21 @@ export const TopBar: React.FC<TopBarProps> = ({
           style={{ display: 'none' }}
         />
       </div>
+      {autoFillFallbackHint && (
+        <div
+          className="auto-fill-fallback-hint"
+          style={{
+            padding: '4px 12px',
+            fontSize: '12px',
+            color: '#f57c00',
+            backgroundColor: 'rgba(245, 124, 0, 0.08)',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          {autoFillFallbackHint}
+        </div>
+      )}
       {showConfigDialog && (
         <AutoFillConfigDialog
           config={autoFillConfig}

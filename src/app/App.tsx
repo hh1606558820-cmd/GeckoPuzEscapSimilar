@@ -74,6 +74,8 @@ export const App: React.FC = () => {
 
   // 自动填充配置状态
   const [autoFillConfig, setAutoFillConfig] = useState<StoredAutoFillConfig>(loadAutoFillConfig());
+  // 自动填充容量不足时的温和提示（不报错、不弹窗）
+  const [autoFillFallbackHint, setAutoFillFallbackHint] = useState<string | null>(null);
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -426,26 +428,27 @@ export const App: React.FC = () => {
         ? maskIndices
         : Array.from({ length: total }, (_, i) => i);
 
-    // 调用自动填充生成 Rope（使用当前配置）
-    const generatedRopes = autoFillRopes({
+    setAutoFillFallbackHint(null);
+    const result = autoFillRopes({
       MapX: levelData.MapX,
       MapY: levelData.MapY,
       maskIndices: fillableIndices,
       config: autoFillConfig,
     });
 
-    if (generatedRopes.length === 0) {
+    if (result.ropes.length === 0) {
       alert('自动填充失败：无法生成有效的 Rope 路径');
       return;
     }
 
-    // 将生成的 Rope 添加到现有 Rope 列表
+    if (result.fallbackHint) {
+      setAutoFillFallbackHint(result.fallbackHint);
+    }
+
     setLevelData((prev) => ({
       ...prev,
-      Rope: [...prev.Rope, ...generatedRopes],
+      Rope: [...prev.Rope, ...result.ropes],
     }));
-
-    // 不改变其他状态（文件名、显示选项、焦点状态等）
   };
 
   return (
@@ -476,6 +479,7 @@ export const App: React.FC = () => {
           saveAutoFillConfig(newConfig);
           setAutoFillConfig(newConfig);
         }}
+        autoFillFallbackHint={autoFillFallbackHint}
       />
       
       <div className="app-layout">

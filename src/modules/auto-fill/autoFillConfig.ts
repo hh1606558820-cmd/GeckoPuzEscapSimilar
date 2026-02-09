@@ -27,8 +27,9 @@ export interface AutoFillConfig {
   ensureAtLeastOneMovable: boolean;   // 至少一条可消：是 => true
   shapePreference: 'C';               // 形态偏好：C（迷宫走廊+蛇形）
   dDefinition: 'B';                   // D 定义：B
-  maxRopes?: number;                  // （可选）上限，避免巨图太多 rope
-  seed?: number | null;               // （可选）用于复现，默认 null
+  minRopes?: number | null;            // 最少生成绳子数（空=不限制）
+  maxRopes?: number | null;            // 最多生成绳子数（空=不限制）
+  seed?: number | null;                // （可选）用于复现，默认 null
   // 留存约束（可选，后验校验用）
   minMovableRopes?: number;           // 首步可动数量阈值
   maxHighBendRatio?: number;          // 高拐弯占比阈值
@@ -129,7 +130,8 @@ export const DEFAULT_AUTO_FILL_CONFIG: AutoFillConfig = {
   ensureAtLeastOneMovable: true,
   shapePreference: 'C',
   dDefinition: 'B',
-  maxRopes: undefined,
+  minRopes: null,
+  maxRopes: null,
   seed: null,
 };
 
@@ -169,7 +171,8 @@ export function loadAutoFillConfig(): StoredAutoFillConfig {
       ensureAtLeastOneMovable: typeof parsed.ensureAtLeastOneMovable === 'boolean' ? parsed.ensureAtLeastOneMovable : DEFAULT_AUTO_FILL_CONFIG.ensureAtLeastOneMovable,
       shapePreference: parsed.shapePreference || DEFAULT_AUTO_FILL_CONFIG.shapePreference,
       dDefinition: parsed.dDefinition || DEFAULT_AUTO_FILL_CONFIG.dDefinition,
-      maxRopes: parsed.maxRopes !== undefined ? (typeof parsed.maxRopes === 'number' ? parsed.maxRopes : undefined) : undefined,
+      minRopes: parsed.minRopes != null && typeof parsed.minRopes === 'number' && !Number.isNaN(parsed.minRopes) ? Math.max(0, Math.floor(parsed.minRopes)) : null,
+      maxRopes: parsed.maxRopes != null && typeof parsed.maxRopes === 'number' && !Number.isNaN(parsed.maxRopes) ? Math.max(0, Math.floor(parsed.maxRopes)) : null,
       seed: parsed.seed !== undefined ? (typeof parsed.seed === 'number' ? parsed.seed : null) : null,
     };
   } catch (error) {

@@ -69,9 +69,17 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
       newErrors.kMax = '最大拐弯数必须 ≥ 最小拐弯数';
     }
 
-    // maxRopes 验证
-    if (localConfig.maxRopes !== undefined && localConfig.maxRopes < 1) {
-      newErrors.maxRopes = '最大 Rope 数量必须 ≥ 1';
+    // minRopes / maxRopes 验证
+    const minR = localConfig.minRopes;
+    const maxR = localConfig.maxRopes;
+    if (minR != null && (typeof minR !== 'number' || minR < 0)) {
+      newErrors.minRopes = '最少生成必须 ≥ 0';
+    }
+    if (maxR != null && (typeof maxR !== 'number' || maxR < 0)) {
+      newErrors.maxRopes = '最多生成必须 ≥ 0';
+    }
+    if (minR != null && maxR != null && typeof minR === 'number' && typeof maxR === 'number' && maxR < minR) {
+      newErrors.maxRopes = '最多生成必须 ≥ 最少生成';
     }
 
     // seed 验证（可选）
@@ -100,7 +108,7 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
     onReset();
   };
 
-  // 切换关卡类型模板：合并预设配置，保留 seed、maxRopes
+  // 切换关卡类型模板：合并预设配置，保留 seed、minRopes、maxRopes
   const handlePresetChange = (presetId: AutoFillPresetId) => {
     const preset = AUTO_FILL_PRESETS[presetId];
     setLocalConfig((prev) => ({
@@ -108,6 +116,7 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
       ...preset.config,
       presetId,
       seed: prev.seed,
+      minRopes: prev.minRopes,
       maxRopes: prev.maxRopes,
     }));
   };
@@ -294,6 +303,46 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
             </div>
           </div>
 
+          {/* Rope 数量区间 */}
+          <div className="auto-fill-config-section">
+            <h3>Rope 数量区间</h3>
+            <div className="auto-fill-config-field">
+              <label>
+                <span>最少生成 (minRopes):</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="不限制"
+                  value={localConfig.minRopes ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    updateField('minRopes', value === '' ? null : Math.max(0, Math.floor(parseInt(value, 10) || 0)));
+                  }}
+                />
+              </label>
+              {errors.minRopes && <span className="auto-fill-config-error">{errors.minRopes}</span>}
+            </div>
+            <div className="auto-fill-config-field">
+              <label>
+                <span>最多生成 (maxRopes):</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="不限制"
+                  value={localConfig.maxRopes ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    updateField('maxRopes', value === '' ? null : Math.max(0, Math.floor(parseInt(value, 10) || 0)));
+                  }}
+                />
+              </label>
+              {errors.maxRopes && <span className="auto-fill-config-error">{errors.maxRopes}</span>}
+              <span className="auto-fill-config-hint">
+                若地图容量不足以达到最少数量，将自动忽略该限制并尽量填满地图
+              </span>
+            </div>
+          </div>
+
           {/* 形态偏好 */}
           <div className="auto-fill-config-section">
             <h3>形态偏好</h3>
@@ -313,30 +362,6 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
           {/* 高级设置 */}
           <div className="auto-fill-config-section">
             <h3>高级设置</h3>
-            <div className="auto-fill-config-field">
-              <label>
-                <span>最大 Rope 数量 (maxRopes):</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="不限制"
-                  value={localConfig.maxRopes || ''}
-                  onChange={(e) => {
-                    const value = e.target.value.trim();
-                    updateField('maxRopes', value === '' ? undefined : parseInt(value, 10));
-                  }}
-                />
-              </label>
-              {errors.maxRopes && <span className="auto-fill-config-error">{errors.maxRopes}</span>}
-              <span className="auto-fill-config-hint">
-                提示：大地图建议限制 Rope 数量
-                {maskCount === 0 && (
-                  <span style={{ display: 'block', marginTop: '4px', color: '#f57c00' }}>
-                    （全图模式下，未设置时将自动使用保守上限：地图格子数/20）
-                  </span>
-                )}
-              </span>
-            </div>
             <div className="auto-fill-config-field">
               <label>
                 <span>随机种子 (seed):</span>
