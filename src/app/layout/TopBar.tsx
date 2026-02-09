@@ -300,17 +300,29 @@ export const TopBar: React.FC<TopBarProps> = ({
             gap: '4px 12px',
           }}
         >
+          <span>DifficultyScore: {difficulty.DifficultyScore.toFixed(1)}</span>
+          <span>BreakDifficulty: {difficulty.BreakDifficulty.toFixed(3)}</span>
+          <span>CognitiveDifficulty: {difficulty.CognitiveDifficulty.toFixed(3)}</span>
           <span>FirstBreakSteps: {difficulty.FirstBreakSteps}</span>
           <span>KeyLockDepth: {difficulty.KeyLockDepth}</span>
           <span>InitialMovableCount: {difficulty.InitialMovableCount}</span>
-          <span>EmptyRatio: {difficulty.EmptyRatio.toFixed(3)}</span>
-          <span>FreeAheadRatio: {difficulty.FreeAheadRatio.toFixed(3)}</span>
-          <span>OOBRatio: {difficulty.OOBRatio.toFixed(3)}</span>
+          <span>Density: {difficulty.Density.toFixed(3)}</span>
           <span>N: {difficulty.N}</span>
           <span>AvgLen: {difficulty.AvgLen.toFixed(2)}</span>
           <span>MaxLen: {difficulty.MaxLen}</span>
           <span>AvgBends: {difficulty.AvgBends.toFixed(2)}</span>
-          <span>KeySet: [{difficulty.KeySet.join(', ')}]</span>
+          {difficulty.FreeAheadRatio != null && (
+            <span>FreeAheadRatio: {difficulty.FreeAheadRatio.toFixed(3)}</span>
+          )}
+          {difficulty.OOBRatio != null && (
+            <span>OOBRatio: {difficulty.OOBRatio.toFixed(3)}</span>
+          )}
+          {difficulty.EmptyRatio != null && (
+            <span>EmptyRatio: {difficulty.EmptyRatio.toFixed(3)}</span>
+          )}
+          {difficulty.KeySet && difficulty.KeySet.length > 0 && (
+            <span>KeySet: [{difficulty.KeySet.join(', ')}]</span>
+          )}
         </div>
       )}
       {autoFillFallbackHint && (
