@@ -9,6 +9,9 @@
 
 export type CoverageTarget = 'A'; // 先只保留 A，未来扩展再加
 
+/** 关卡类型模板 id */
+export type AutoFillPresetId = 'normal' | 'hard' | 'extreme';
+
 /**
  * 自动填充配置接口
  */
@@ -26,7 +29,90 @@ export interface AutoFillConfig {
   dDefinition: 'B';                   // D 定义：B
   maxRopes?: number;                  // （可选）上限，避免巨图太多 rope
   seed?: number | null;               // （可选）用于复现，默认 null
+  // 留存约束（可选，后验校验用）
+  minMovableRopes?: number;           // 首步可动数量阈值
+  maxHighBendRatio?: number;          // 高拐弯占比阈值
+  highBendThreshold?: number;        // 何为高拐弯（默认 3/4/6）
+  maxAvgBend?: number;               // 平均拐弯上限
+  minMainRopeLen?: number;            // 主线最小长度（困难/超困难用）
+  maxColors?: number;                 // 颜色数上限（普通关用）
 }
+
+/**
+ * 存储结构：localStorage 中带 presetId
+ */
+export type StoredAutoFillConfig = AutoFillConfig & { presetId?: AutoFillPresetId };
+
+/**
+ * 三套预设（普通/困难/超困难）
+ */
+export const AUTO_FILL_PRESETS: Record<AutoFillPresetId, { name: string; config: Partial<AutoFillConfig> }> = {
+  normal: {
+    name: '普通关（4-30）',
+    config: {
+      targetCoverage: 'A',
+      minLen: 2,
+      maxLen: 14,
+      kMin: 0,
+      kMax: 2,
+      forbidUturn: true,
+      forbidHeadTurn: true,
+      forbid2x2Loop: true,
+      ensureAtLeastOneMovable: true,
+      shapePreference: 'C',
+      dDefinition: 'B',
+      minMovableRopes: 2,
+      highBendThreshold: 3,
+      maxHighBendRatio: 0.15,
+      maxAvgBend: 1.5,
+      maxColors: 4,
+    },
+  },
+  hard: {
+    name: '困难关（31-60）',
+    config: {
+      targetCoverage: 'A',
+      minLen: 3,
+      maxLen: 20,
+      kMin: 1,
+      kMax: 4,
+      forbidUturn: true,
+      forbidHeadTurn: true,
+      forbid2x2Loop: true,
+      ensureAtLeastOneMovable: true,
+      shapePreference: 'C',
+      dDefinition: 'B',
+      minMovableRopes: 2,
+      highBendThreshold: 4,
+      maxHighBendRatio: 0.30,
+      maxAvgBend: 2.5,
+      minMainRopeLen: 15,
+    },
+  },
+  extreme: {
+    name: '超困难关（60+）',
+    config: {
+      targetCoverage: 'A',
+      minLen: 4,
+      maxLen: 25,
+      kMin: 2,
+      kMax: 7,
+      forbidUturn: true,
+      forbidHeadTurn: true,
+      forbid2x2Loop: true,
+      ensureAtLeastOneMovable: true,
+      shapePreference: 'C',
+      dDefinition: 'B',
+      minMovableRopes: 1,
+      highBendThreshold: 6,
+      maxHighBendRatio: 0.35,
+      maxAvgBend: 3.5,
+      minMainRopeLen: 18,
+    },
+  },
+};
+
+export const DEFAULT_PRESET_ID: AutoFillPresetId = 'normal';
 
 /**
  * 默认配置
@@ -54,22 +140,24 @@ const STORAGE_KEY = 'level_editor_auto_fill_config_v1';
 
 /**
  * 加载自动填充配置
- * 从 localStorage 读取，如果不存在或格式错误则返回默认配置
+ * 从 localStorage 读取，如果不存在或格式错误则返回默认配置（含 presetId）
  */
-export function loadAutoFillConfig(): AutoFillConfig {
+export function loadAutoFillConfig(): StoredAutoFillConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
-      return { ...DEFAULT_AUTO_FILL_CONFIG };
+      return { ...DEFAULT_AUTO_FILL_CONFIG, presetId: DEFAULT_PRESET_ID };
     }
 
     const parsed = JSON.parse(stored);
-    
+    const validPresetIds: AutoFillPresetId[] = ['normal', 'hard', 'extreme'];
+    const presetId = validPresetIds.includes(parsed.presetId) ? parsed.presetId : DEFAULT_PRESET_ID;
+
     // 验证并合并配置（确保所有必需字段都存在）
     return {
       ...DEFAULT_AUTO_FILL_CONFIG,
       ...parsed,
-      // 确保类型正确
+      presetId,
       targetCoverage: parsed.targetCoverage || DEFAULT_AUTO_FILL_CONFIG.targetCoverage,
       minLen: typeof parsed.minLen === 'number' ? parsed.minLen : DEFAULT_AUTO_FILL_CONFIG.minLen,
       maxLen: typeof parsed.maxLen === 'number' ? parsed.maxLen : DEFAULT_AUTO_FILL_CONFIG.maxLen,
@@ -86,14 +174,14 @@ export function loadAutoFillConfig(): AutoFillConfig {
     };
   } catch (error) {
     console.error('加载自动填充配置失败:', error);
-    return { ...DEFAULT_AUTO_FILL_CONFIG };
+    return { ...DEFAULT_AUTO_FILL_CONFIG, presetId: DEFAULT_PRESET_ID };
   }
 }
 
 /**
- * 保存自动填充配置到 localStorage
+ * 保存自动填充配置到 localStorage（含 presetId）
  */
-export function saveAutoFillConfig(config: AutoFillConfig): void {
+export function saveAutoFillConfig(config: StoredAutoFillConfig): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch (error) {

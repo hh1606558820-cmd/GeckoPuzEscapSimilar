@@ -28,7 +28,7 @@ import {
 } from '@/modules/rope-manager/ropeMutations';
 import { getDefaultColorIdx } from '@/modules/rope-color-pool';
 import { autoFillRopes } from '@/modules/auto-fill/autoFillRopes';
-import { loadAutoFillConfig, saveAutoFillConfig, AutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
+import { loadAutoFillConfig, saveAutoFillConfig, StoredAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import { TopBar } from './layout/TopBar';
 import { ResizableSidebar } from './layout/ResizableSidebar';
 import { RightJsonPanel } from './layout/RightJsonPanel';
@@ -73,7 +73,7 @@ export const App: React.FC = () => {
   const [isLevelNameDirty, setIsLevelNameDirty] = useState<boolean>(false);
 
   // 自动填充配置状态
-  const [autoFillConfig, setAutoFillConfig] = useState<AutoFillConfig>(loadAutoFillConfig());
+  const [autoFillConfig, setAutoFillConfig] = useState<StoredAutoFillConfig>(loadAutoFillConfig());
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {

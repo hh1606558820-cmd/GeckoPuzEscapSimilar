@@ -7,13 +7,20 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { AutoFillConfig, DEFAULT_AUTO_FILL_CONFIG } from './autoFillConfig';
+import {
+  AutoFillConfig,
+  StoredAutoFillConfig,
+  DEFAULT_AUTO_FILL_CONFIG,
+  DEFAULT_PRESET_ID,
+  AUTO_FILL_PRESETS,
+  AutoFillPresetId,
+} from './autoFillConfig';
 import './AutoFillConfigDialog.css';
 
 interface AutoFillConfigDialogProps {
-  config: AutoFillConfig;
+  config: StoredAutoFillConfig;
   maskCount: number;
-  onSave: (config: AutoFillConfig) => void;
+  onSave: (config: StoredAutoFillConfig) => void;
   onCancel: () => void;
   onReset: () => void;
 }
@@ -25,7 +32,7 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
   onCancel,
   onReset,
 }) => {
-  const [localConfig, setLocalConfig] = useState<AutoFillConfig>({ ...config });
+  const [localConfig, setLocalConfig] = useState<StoredAutoFillConfig>({ ...config });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // 当外部 config 变化时更新本地配置
@@ -87,11 +94,22 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
 
   // 处理恢复默认
   const handleReset = () => {
-    const defaultConfig = { ...DEFAULT_AUTO_FILL_CONFIG };
+    const defaultConfig: StoredAutoFillConfig = { ...DEFAULT_AUTO_FILL_CONFIG, presetId: DEFAULT_PRESET_ID };
     setLocalConfig(defaultConfig);
     setErrors({});
     onReset();
-    // 注意：onReset 会保存默认配置，这里不需要再次保存
+  };
+
+  // 切换关卡类型模板：合并预设配置，保留 seed、maxRopes
+  const handlePresetChange = (presetId: AutoFillPresetId) => {
+    const preset = AUTO_FILL_PRESETS[presetId];
+    setLocalConfig((prev) => ({
+      ...prev,
+      ...preset.config,
+      presetId,
+      seed: prev.seed,
+      maxRopes: prev.maxRopes,
+    }));
   };
 
   // 更新配置字段
@@ -124,6 +142,27 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
         </div>
 
         <div className="auto-fill-config-dialog-content">
+          {/* 关卡类型模板 */}
+          <div className="auto-fill-config-section">
+            <h3>关卡类型</h3>
+            <div className="auto-fill-config-field">
+              <label>
+                <span>模板：</span>
+                <select
+                  value={localConfig.presetId ?? DEFAULT_PRESET_ID}
+                  onChange={(e) => handlePresetChange(e.target.value as AutoFillPresetId)}
+                >
+                  {(Object.keys(AUTO_FILL_PRESETS) as AutoFillPresetId[]).map((id) => (
+                    <option key={id} value={id}>
+                      {AUTO_FILL_PRESETS[id].name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className="auto-fill-config-hint">选择后下方参数将自动填入，可微调</span>
+            </div>
+          </div>
+
           {/* 说明 */}
           <div className="auto-fill-config-section">
             <div className="auto-fill-config-info">

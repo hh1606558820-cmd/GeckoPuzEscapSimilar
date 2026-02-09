@@ -23,9 +23,8 @@ import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
 import { sanitizeFileName } from '@/shared/utils';
-import { AutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
+import { StoredAutoFillConfig, DEFAULT_AUTO_FILL_CONFIG, DEFAULT_PRESET_ID, saveAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import { AutoFillConfigDialog } from '@/modules/auto-fill/AutoFillConfigDialog';
-import { DEFAULT_AUTO_FILL_CONFIG, saveAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import './layout.css';
 
 interface TopBarProps {
@@ -46,8 +45,8 @@ interface TopBarProps {
   onClearLevel: () => void;
   onAutoFill: () => void;
   maskIndices: number[];
-  autoFillConfig: AutoFillConfig;
-  onAutoFillConfigChange: (config: AutoFillConfig) => void;
+  autoFillConfig: StoredAutoFillConfig;
+  onAutoFillConfigChange: (config: StoredAutoFillConfig) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -273,8 +272,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           }}
           onCancel={() => setShowConfigDialog(false)}
           onReset={() => {
-            onAutoFillConfigChange({ ...DEFAULT_AUTO_FILL_CONFIG });
-            saveAutoFillConfig(DEFAULT_AUTO_FILL_CONFIG);
+            onAutoFillConfigChange({ ...DEFAULT_AUTO_FILL_CONFIG, presetId: DEFAULT_PRESET_ID });
+            saveAutoFillConfig({ ...DEFAULT_AUTO_FILL_CONFIG, presetId: DEFAULT_PRESET_ID });
           }}
         />
       )}

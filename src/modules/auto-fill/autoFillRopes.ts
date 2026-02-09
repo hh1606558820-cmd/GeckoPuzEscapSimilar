@@ -169,6 +169,75 @@ function validateRope(path: number[], MapX: number, config: AutoFillConfig): boo
 }
 
 /**
+ * 留存约束后验校验（仅当 config 对应字段存在时检查）
+ * 统计：可动数量、高拐弯占比、平均拐弯、最长主线长度
+ */
+function postValidate(
+  config: AutoFillConfig,
+  ropes: RopeData[],
+  MapX: number,
+  MapY: number
+): { ok: boolean } {
+  if (ropes.length === 0) {
+    return { ok: true };
+  }
+
+  const maxIndex = MapX * MapY - 1;
+  const occupiedAll = new Set<number>();
+  ropes.forEach((r) => r.Index.forEach((i) => occupiedAll.add(i)));
+
+  let movableCount = 0;
+  ropes.forEach((rope) => {
+    if (rope.Index.length < 2 || rope.D < 1 || rope.D > 4) return;
+    let nextIndex: number;
+    switch (rope.D) {
+      case 1:
+        nextIndex = rope.Index[0] + MapX;
+        break;
+      case 2:
+        nextIndex = rope.Index[0] - MapX;
+        break;
+      case 3:
+        nextIndex = rope.Index[0] + 1;
+        break;
+      case 4:
+        nextIndex = rope.Index[0] - 1;
+        break;
+      default:
+        return;
+    }
+    if (nextIndex < 0 || nextIndex > maxIndex) {
+      movableCount++;
+      return;
+    }
+    if (!occupiedAll.has(nextIndex)) {
+      movableCount++;
+    }
+  });
+
+  const threshold = config.highBendThreshold ?? 999;
+  const highBendCount = ropes.filter((r) => r.BendCount >= threshold).length;
+  const highBendRatio = ropes.length > 0 ? highBendCount / ropes.length : 0;
+  const sumBend = ropes.reduce((s, r) => s + r.BendCount, 0);
+  const avgBend = ropes.length > 0 ? sumBend / ropes.length : 0;
+  const mainRopeLen = Math.max(0, ...ropes.map((r) => r.Index.length));
+
+  if (config.minMovableRopes != null && movableCount < config.minMovableRopes) {
+    return { ok: false };
+  }
+  if (config.maxHighBendRatio != null && highBendRatio > config.maxHighBendRatio) {
+    return { ok: false };
+  }
+  if (config.maxAvgBend != null && avgBend > config.maxAvgBend) {
+    return { ok: false };
+  }
+  if (config.minMainRopeLen != null && mainRopeLen < config.minMainRopeLen) {
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
+/**
  * 生成单个 Rope 路径（生长式随机走）
  */
 function generateSingleRope(
@@ -268,8 +337,65 @@ function generateSingleRope(
   return path;
 }
 
+const POST_VALIDATE_MAX_ATTEMPTS = 40;
+
+/**
+ * 单次生成（供重试调用）
+ */
+function generateRopesOnce(
+  MapX: number,
+  MapY: number,
+  fillableIndices: number[],
+  finalConfig: AutoFillConfig,
+  random: () => number
+): RopeData[] {
+  const availableIndices = new Set(fillableIndices);
+  const ropes: RopeData[] = [];
+  const isFullMapMode = fillableIndices.length === MapX * MapY;
+  const inferredMaxRopes = finalConfig.maxRopes ?? (isFullMapMode ? Math.ceil((MapX * MapY) / 20) : 100);
+  const maxRopes = inferredMaxRopes;
+  const maxAttemptsPerRope = 50;
+  let totalAttempts = 0;
+
+  while (availableIndices.size > 0 && ropes.length < maxRopes && totalAttempts < maxAttemptsPerRope * maxRopes) {
+    totalAttempts++;
+    const path = generateSingleRope(availableIndices, MapX, MapY, finalConfig, random);
+    if (!path) {
+      if (totalAttempts > maxAttemptsPerRope * 10) break;
+      continue;
+    }
+    const rope: RopeData = {
+      D: calculateD(path, MapX),
+      H: calculateH(path),
+      Index: [...path],
+      BendCount: calculateBendCount(path, MapX),
+      ColorIdx: -1,
+    };
+    if (finalConfig.forbidHeadTurn && path.length >= 2) {
+      const firstSegmentDir = calculateDirection(path[0], path[1], MapX);
+      if (firstSegmentDir === Direction.Invalid) continue;
+      const expectedD = oppositeDirection(firstSegmentDir);
+      if (rope.D !== expectedD) continue;
+      const headAdjacent = getAdjacentIndices(path[0], MapX, MapY);
+      let skipHeadTurn = false;
+      for (let i = 2; i < path.length; i++) {
+        if (headAdjacent.includes(path[i])) {
+          skipHeadTurn = true;
+          break;
+        }
+      }
+      if (skipHeadTurn) continue;
+    }
+    ropes.push(rope);
+    path.forEach((index) => availableIndices.delete(index));
+    if (finalConfig.targetCoverage === 'A' && availableIndices.size === 0) break;
+  }
+  return ropes;
+}
+
 /**
  * 自动填充 Rope 生成主函数
+ * 若配置了留存约束，则进行后验校验，不通过则重试（最多 POST_VALIDATE_MAX_ATTEMPTS 次）
  */
 export function autoFillRopes(params: {
   MapX: number;
@@ -278,108 +404,59 @@ export function autoFillRopes(params: {
   config?: AutoFillConfig;
 }): RopeData[] {
   const { MapX, MapY, maskIndices, config = {} } = params;
-  
-  // 合并配置
+
   const finalConfig: AutoFillConfig = {
     ...DEFAULT_AUTO_FILL_CONFIG,
     ...config,
   };
-  
-  // 初始化随机数生成器（支持 seed）
-  const seededRandom = finalConfig.seed !== null && finalConfig.seed !== undefined
-    ? new SeededRandom(finalConfig.seed)
-    : null;
-  const random = seededRandom
-    ? () => seededRandom.next()
-    : Math.random;
-  
-  // 检查输入
+
+  const seededRandom =
+    finalConfig.seed !== null && finalConfig.seed !== undefined
+      ? new SeededRandom(finalConfig.seed)
+      : null;
+  const random = seededRandom ? () => seededRandom.next() : Math.random;
+
   if (MapX === 0 || MapY === 0) {
     return [];
   }
-  
-  // 兜底逻辑：如果 mask 为空，使用全图
+
   const total = MapX * MapY;
   const fillableIndices =
     maskIndices && maskIndices.length > 0
       ? maskIndices
       : Array.from({ length: total }, (_, i) => i);
-  
+
   if (fillableIndices.length === 0) {
     return [];
   }
-  
-  // 创建可用格子集合
-  const availableIndices = new Set(fillableIndices);
-  
-  // 生成 Rope 列表
-  const ropes: RopeData[] = [];
-  
-  // 性能保护：如果 mask 为空（全图模式），且用户没配 maxRopes，给一个保守默认上限
-  const isFullMapMode = !maskIndices || maskIndices.length === 0;
-  const inferredMaxRopes = finalConfig.maxRopes ?? (isFullMapMode ? Math.ceil((MapX * MapY) / 20) : 100);
-  const maxRopes = inferredMaxRopes; // 最大 Rope 数量（防止无限循环）
-  const maxAttemptsPerRope = 50; // 每个 Rope 的最大尝试次数
-  
-  let totalAttempts = 0;
-  
-  while (availableIndices.size > 0 && ropes.length < maxRopes && totalAttempts < maxAttemptsPerRope * maxRopes) {
-    totalAttempts++;
-    
-    // 生成单个 Rope
-    const path = generateSingleRope(availableIndices, MapX, MapY, finalConfig, random);
-    
-    if (!path) {
-      // 生成失败，尝试减少可用格子或结束
-      if (totalAttempts > maxAttemptsPerRope * 10) {
-        break; // 多次失败后结束
-      }
-      continue;
-    }
-    
-    // 创建 RopeData
-    const rope: RopeData = {
-      D: calculateD(path, MapX),
-      H: calculateH(path),
-      Index: [...path],
-      BendCount: calculateBendCount(path, MapX),
-      ColorIdx: -1, // 默认无颜色
-    };
-    
-    // 最终验证：确保 D 与 Index[0]->Index[1] 一致（防止头转弯）
-    if (finalConfig.forbidHeadTurn && path.length >= 2) {
-      const firstSegmentDir = calculateDirection(path[0], path[1], MapX);
-      if (firstSegmentDir === Direction.Invalid) {
-        continue; // 第一段方向无效，跳过
-      }
-      const expectedD = oppositeDirection(firstSegmentDir);
-      if (rope.D !== expectedD) {
-        // D 不一致，跳过这个 Rope（头转弯）
-        continue;
-      }
-      
-      // 额外检查：确保 Index[0] 的相邻格中只有 Index[1]，没有其他路径点
-      const headAdjacent = getAdjacentIndices(path[0], MapX, MapY);
-      for (let i = 2; i < path.length; i++) {
-        if (headAdjacent.includes(path[i])) {
-          // 发现头转弯：Index[0] 周围有其他路径点
-          continue; // 跳过这个 Rope
-        }
+
+  const hasPostConstraints =
+    finalConfig.minMovableRopes != null ||
+    finalConfig.maxHighBendRatio != null ||
+    finalConfig.maxAvgBend != null ||
+    finalConfig.minMainRopeLen != null;
+
+  let lastRopes: RopeData[] = [];
+
+  if (hasPostConstraints) {
+    for (let attempt = 1; attempt <= POST_VALIDATE_MAX_ATTEMPTS; attempt++) {
+      const attemptRandom =
+        finalConfig.seed != null
+          ? (() => {
+              const r = new SeededRandom(finalConfig.seed! + attempt);
+              return () => r.next();
+            })()
+          : random;
+      const ropes = generateRopesOnce(MapX, MapY, [...fillableIndices], finalConfig, attemptRandom);
+      lastRopes = ropes;
+      if (postValidate(finalConfig, ropes, MapX, MapY).ok) {
+        return ropes;
       }
     }
-    
-    ropes.push(rope);
-    
-    // 从可用格子中移除已使用的格子
-    path.forEach(index => {
-      availableIndices.delete(index);
-    });
-    
-    // 如果覆盖目标完成，可以提前结束
-    if (finalConfig.targetCoverage === 'A' && availableIndices.size === 0) {
-      break;
-    }
+    console.warn('本次自动填充未满足全部留存约束，已使用最接近结果');
+    return lastRopes;
   }
-  
-  return ropes;
+
+  lastRopes = generateRopesOnce(MapX, MapY, fillableIndices, finalConfig, random);
+  return lastRopes;
 }
