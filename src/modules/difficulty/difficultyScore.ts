@@ -1,5 +1,5 @@
 /**
- * Rope Puzzle DifficultyScore 最终版（双通道模型）
+ * 关卡难度评分（线性加权公式版）
  * 纯函数，不修改 levelData。
  */
 
@@ -9,20 +9,20 @@ const INF = Number.POSITIVE_INFINITY;
 
 export interface DifficultyDiagnostics {
   DifficultyScore: number;
-  BreakDifficulty: number;
-  CognitiveDifficulty: number;
   FirstBreakSteps: number;
   KeyLockDepth: number;
   InitialMovableCount: number;
-  Density: number;
   EmptyRatio: number;
+  FreeAheadRatio: number;
+  OOBRatio: number;
   N: number;
   AvgLen: number;
   MaxLen: number;
   AvgBends: number;
-  FreeAheadRatio?: number;
-  OOBRatio?: number;
-  KeySet?: number[];
+  KeySet: number[];
+  BreakDifficulty?: number;
+  CognitiveDifficulty?: number;
+  Density?: number;
 }
 
 interface CellOwner {
@@ -32,12 +32,6 @@ interface CellOwner {
 
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x));
-}
-
-/** logNorm(x, xmax) = clamp01( ln(1+x) / ln(1+xmax) ) */
-function logNorm(x: number, xmax: number): number {
-  if (xmax <= 0) return 0;
-  return clamp01(Math.log(1 + Math.max(0, x)) / Math.log(1 + xmax));
 }
 
 /** NextCell：考虑左右边界，OUT 返回 -1 */
@@ -100,17 +94,17 @@ export function computeDifficulty(levelData: LevelData): DifficultyDiagnostics {
 
   const emptyDiag: DifficultyDiagnostics = {
     DifficultyScore: 0,
-    BreakDifficulty: 0,
-    CognitiveDifficulty: 0,
     FirstBreakSteps: 0,
     KeyLockDepth: 0,
     InitialMovableCount: 0,
-    Density: 0,
     EmptyRatio: BoardSize === 0 ? 0 : 1,
+    FreeAheadRatio: 0,
+    OOBRatio: 0,
     N: 0,
     AvgLen: 0,
     MaxLen: 0,
     AvgBends: 0,
+    KeySet: [],
   };
 
   if (BoardSize === 0 || N === 0) {
@@ -232,45 +226,38 @@ export function computeDifficulty(levelData: LevelData): DifficultyDiagnostics {
     }
   }
 
-  const nFirst = logNorm(FirstBreakSteps, 25);
-  const nLock = logNorm(KeyLockDepth, 25);
-  const nN = clamp01(N / 60);
-  const nAvg = clamp01(AvgLen / 15);
-  const nMax = clamp01(MaxLen / 80);
-  const nBend = clamp01(AvgBends / 15);
-  const nDen = clamp01(Density / 0.95);
-  const invMov = clamp01((1 / Math.max(1, InitialMovableCount)) / 0.25);
-  const branch = clamp01(EmptyRatio / 0.45) * clamp01(FreeAheadRatio / 0.45);
-  const nOOB = clamp01(OOBRatio / 0.6);
+  const normN = clamp01(N / 60);
+  const normEmpty = clamp01(EmptyRatio / 0.8);
+  const normBends = clamp01(AvgBends / 15);
+  const normMaxLen = clamp01(MaxLen / 80);
+  const normFreeAhead = clamp01(FreeAheadRatio / 0.8);
+  const normFirstBreak = clamp01(FirstBreakSteps / 25);
+  const normKeyLock = clamp01(KeyLockDepth / 25);
+  const normOOB = clamp01(OOBRatio / 0.6);
 
-  const BreakDifficulty = clamp01(
-    0.4 * nFirst + 0.25 * nLock + 0.2 * invMov + 0.15 * branch - 0.05 * nOOB
-  );
-  const CognitiveDifficulty = clamp01(
-    0.35 * nDen +
-      0.2 * nN +
-      0.15 * nAvg +
-      0.1 * nBend +
-      0.1 * nMax +
-      0.1 * (1 - EmptyRatio)
-  );
-  const DifficultyScore = 100 * clamp01(Math.max(BreakDifficulty, CognitiveDifficulty));
+  const raw =
+    0.32 * normFirstBreak +
+    0.2 * normKeyLock +
+    0.15 * normN +
+    0.1 * normEmpty +
+    0.1 * normBends +
+    0.08 * normMaxLen +
+    0.05 * normFreeAhead -
+    0.05 * normOOB;
+  const DifficultyScore = 100 * clamp01(raw);
 
   return {
     DifficultyScore,
-    BreakDifficulty,
-    CognitiveDifficulty,
     FirstBreakSteps,
     KeyLockDepth,
     InitialMovableCount,
-    Density,
     EmptyRatio,
+    FreeAheadRatio,
+    OOBRatio,
     N,
     AvgLen,
     MaxLen,
     AvgBends,
-    FreeAheadRatio,
-    OOBRatio,
     KeySet,
   };
 }
