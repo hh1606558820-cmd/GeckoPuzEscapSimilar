@@ -25,7 +25,7 @@ import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
 import { sanitizeFileName } from '@/shared/utils';
 import { StoredAutoFillConfig, DEFAULT_AUTO_FILL_CONFIG, DEFAULT_PRESET_ID, saveAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import { AutoFillConfigDialog } from '@/modules/auto-fill/AutoFillConfigDialog';
-import { computeFirstBreakSteps } from '@/modules/difficulty/firstBreakSteps';
+import { computeDifficulty, type DifficultyDiagnostics } from '@/modules/difficulty/difficultyScore';
 import './layout.css';
 
 interface TopBarProps {
@@ -75,11 +75,11 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
-  const [difficultyScore, setDifficultyScore] = useState<number | null>(null);
+  const [difficulty, setDifficulty] = useState<DifficultyDiagnostics | null>(null);
+  const [showDifficultyDetails, setShowDifficultyDetails] = useState(false);
 
   const handleComputeDifficulty = () => {
-    const score = computeFirstBreakSteps(levelData);
-    setDifficultyScore(score);
+    setDifficulty(computeDifficulty(levelData));
   };
 
   // 处理生成关卡
@@ -251,12 +251,23 @@ export const TopBar: React.FC<TopBarProps> = ({
             ⚙
           </button>
         </div>
-        <button className="top-bar-btn" onClick={handleComputeDifficulty} title="根据当前关卡计算 FirstBreakSteps 难度">
+        <button className="top-bar-btn" onClick={handleComputeDifficulty} title="根据当前关卡计算难度（点击才计算）">
           计算难度
         </button>
         <span style={{ fontSize: '14px', marginLeft: '4px' }}>
-          Difficulty: {difficultyScore !== null ? difficultyScore : '-'}
+          DifficultyScore: {difficulty !== null ? Math.round(difficulty.DifficultyScore) : '-'}
         </span>
+        {difficulty !== null && (
+          <button
+            type="button"
+            className="top-bar-btn"
+            onClick={() => setShowDifficultyDetails((v) => !v)}
+            title="展开/收起诊断详情"
+            style={{ padding: '4px 8px', minWidth: 'auto', fontSize: '12px' }}
+          >
+            {showDifficultyDetails ? '▼ 详情' : '▶ 详情'}
+          </button>
+        )}
         <button className="top-bar-btn" onClick={onClearLevel}>
           清空
         </button>
@@ -277,6 +288,31 @@ export const TopBar: React.FC<TopBarProps> = ({
           style={{ display: 'none' }}
         />
       </div>
+      {difficulty !== null && showDifficultyDetails && (
+        <div
+          style={{
+            padding: '8px 12px',
+            fontSize: '12px',
+            backgroundColor: 'rgba(0,0,0,0.04)',
+            borderTop: '1px solid #eee',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+            gap: '4px 12px',
+          }}
+        >
+          <span>FirstBreakSteps: {difficulty.FirstBreakSteps}</span>
+          <span>KeyLockDepth: {difficulty.KeyLockDepth}</span>
+          <span>InitialMovableCount: {difficulty.InitialMovableCount}</span>
+          <span>EmptyRatio: {difficulty.EmptyRatio.toFixed(3)}</span>
+          <span>FreeAheadRatio: {difficulty.FreeAheadRatio.toFixed(3)}</span>
+          <span>OOBRatio: {difficulty.OOBRatio.toFixed(3)}</span>
+          <span>N: {difficulty.N}</span>
+          <span>AvgLen: {difficulty.AvgLen.toFixed(2)}</span>
+          <span>MaxLen: {difficulty.MaxLen}</span>
+          <span>AvgBends: {difficulty.AvgBends.toFixed(2)}</span>
+          <span>KeySet: [{difficulty.KeySet.join(', ')}]</span>
+        </div>
+      )}
       {autoFillFallbackHint && (
         <div
           className="auto-fill-fallback-hint"
