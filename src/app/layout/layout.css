@@ -1,21 +1,23 @@
-/* 顶部栏样式 */
+/* 顶部栏样式：三段布局 left | actions(可横向滚动) | right(状态条) */
 .top-bar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: 48px;
   background-color: #fff;
   border-bottom: 1px solid #ddd;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
+  gap: 8px;
+  padding: 0 12px;
   z-index: 1000;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-width: 0;
 }
 
 .top-bar-left {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -43,9 +45,99 @@
   color: #555;
 }
 
-.top-bar-right {
+/* 中间：按钮组，可横向滚动，禁止换行 */
+.top-bar-actions {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+
+.top-bar-actions .top-bar-btn,
+.top-bar-actions .top-bar-btn-icon,
+.top-bar-actions .top-bar-btn-sm {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  word-break: keep-all;
+  min-width: 72px;
+  padding: 0 10px;
+  line-height: 1;
+}
+
+.top-bar-filename-input {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.top-bar-filename-input label {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.top-bar-filename-input input {
+  padding: 4px 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 120px;
+}
+
+.top-bar-btn-group {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.top-bar-btn-hint {
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+.top-bar-btn-icon {
+  min-width: auto;
+  padding: 8px 12px !important;
+}
+
+.top-bar-btn-sm {
+  min-width: auto;
+  padding: 4px 8px !important;
+  font-size: 12px;
+}
+
+.top-bar-difficulty-label {
+  font-size: 14px;
+  margin-left: 4px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* 右侧：AutoTune 状态条，固定占位避免抖动 */
+.top-bar-right {
+  flex: 0 0 auto;
+  max-width: 360px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.top-bar-autotune-wrap {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .top-bar-btn {
@@ -172,7 +264,7 @@
 .app-layout {
   display: flex;
   height: 100vh;
-  padding-top: 60px; /* TopBar 高度 */
+  padding-top: 48px; /* TopBar 高度 */
 }
 
 .app-sidebar-container {

@@ -37,6 +37,12 @@ export interface AutoFillConfig {
   maxAvgBend?: number;               // 平均拐弯上限
   minMainRopeLen?: number;            // 主线最小长度（困难/超困难用）
   maxColors?: number;                 // 颜色数上限（普通关用）
+  // 留存优化（AutoTune，默认关闭）
+  autoTuneEnabled?: boolean;
+  targetScoreMin?: number;
+  targetScoreMax?: number;
+  maxTuneAttempts?: number;
+  hardGuardsEnabled?: boolean;
 }
 
 /**
@@ -133,6 +139,11 @@ export const DEFAULT_AUTO_FILL_CONFIG: AutoFillConfig = {
   minRopes: null,
   maxRopes: null,
   seed: null,
+  autoTuneEnabled: false,
+  targetScoreMin: 25,
+  targetScoreMax: 60,
+  maxTuneAttempts: 25,
+  hardGuardsEnabled: true,
 };
 
 /**
@@ -174,6 +185,11 @@ export function loadAutoFillConfig(): StoredAutoFillConfig {
       minRopes: parsed.minRopes != null && typeof parsed.minRopes === 'number' && !Number.isNaN(parsed.minRopes) ? Math.max(0, Math.floor(parsed.minRopes)) : null,
       maxRopes: parsed.maxRopes != null && typeof parsed.maxRopes === 'number' && !Number.isNaN(parsed.maxRopes) ? Math.max(0, Math.floor(parsed.maxRopes)) : null,
       seed: parsed.seed !== undefined ? (typeof parsed.seed === 'number' ? parsed.seed : null) : null,
+      autoTuneEnabled: typeof parsed.autoTuneEnabled === 'boolean' ? parsed.autoTuneEnabled : false,
+      targetScoreMin: typeof parsed.targetScoreMin === 'number' ? Math.max(0, Math.min(100, parsed.targetScoreMin)) : 25,
+      targetScoreMax: typeof parsed.targetScoreMax === 'number' ? Math.max(0, Math.min(100, parsed.targetScoreMax)) : 60,
+      maxTuneAttempts: typeof parsed.maxTuneAttempts === 'number' ? Math.max(1, Math.min(100, Math.floor(parsed.maxTuneAttempts))) : 25,
+      hardGuardsEnabled: typeof parsed.hardGuardsEnabled === 'boolean' ? parsed.hardGuardsEnabled : true,
     };
   } catch (error) {
     console.error('加载自动填充配置失败:', error);

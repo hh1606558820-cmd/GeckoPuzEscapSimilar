@@ -18,7 +18,7 @@
  * - 渲染顶部栏 UI
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { LevelData } from '@/types/Level';
 import { validateLevel } from '@/modules/level-io/validators';
 import { downloadLevelJson, readLevelJson } from '@/modules/level-io/io';
@@ -26,6 +26,8 @@ import { sanitizeFileName } from '@/shared/utils';
 import { StoredAutoFillConfig, DEFAULT_AUTO_FILL_CONFIG, DEFAULT_PRESET_ID, saveAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
 import { AutoFillConfigDialog } from '@/modules/auto-fill/AutoFillConfigDialog';
 import { computeDifficulty, type DifficultyDiagnostics } from '@/modules/difficulty/difficultyScore';
+import type { AutoTuneUIState } from '@/modules/auto-fill/autoTune';
+import { AutoTuneBadge } from './AutoTuneBadge';
 import './layout.css';
 
 interface TopBarProps {
@@ -44,11 +46,14 @@ interface TopBarProps {
   onToggleRopeOverlay: () => void;
   onToggleJsonPanel: () => void;
   onClearLevel: () => void;
+  onClearRopesOnly?: () => void;
+  onClearAll?: () => void;
   onAutoFill: () => void;
   maskIndices: number[];
   autoFillConfig: StoredAutoFillConfig;
   onAutoFillConfigChange: (config: StoredAutoFillConfig) => void;
   autoFillFallbackHint?: string | null;
+  autoTuneUIState?: AutoTuneUIState;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -67,14 +72,52 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleRopeOverlay,
   onToggleJsonPanel,
   onClearLevel,
+  onClearRopesOnly,
+  onClearAll,
   onAutoFill,
   maskIndices,
   autoFillConfig,
   onAutoFillConfigChange,
   autoFillFallbackHint,
+  autoTuneUIState = { status: 'idle' },
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [clearMenuOpen, setClearMenuOpen] = useState(false);
+  const clearMenuRef = useRef<HTMLDivElement>(null);
+  const clearButtonRef = useRef<HTMLButtonElement>(null);
+
+  // 处理点击空白处关闭菜单
+  useEffect(() => {
+    if (!clearMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        clearMenuRef.current &&
+        clearButtonRef.current &&
+        !clearMenuRef.current.contains(target) &&
+        !clearButtonRef.current.contains(target)
+      ) {
+        setClearMenuOpen(false);
+      }
+    };
+
+    // 处理 ESC 键关闭菜单
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setClearMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [clearMenuOpen]);
   const [difficulty, setDifficulty] = useState<DifficultyDiagnostics | null>(null);
   const [showDifficultyDetails, setShowDifficultyDetails] = useState(false);
 
@@ -191,22 +234,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         </div>
       </div>
-      <div className="top-bar-right">
-        <div className="top-bar-filename-input" style={{ display: 'inline-flex', alignItems: 'center', marginRight: '8px' }}>
-          <label style={{ marginRight: '4px', fontSize: '14px' }}>文件名:</label>
+      <div className="top-bar-actions">
+        <div className="top-bar-filename-input">
+          <label>文件名:</label>
           <input
             type="text"
             value={levelName}
             onChange={(e) => {
               onLevelNameChange(e.target.value);
-              // 用户手动修改时设置 dirty = true
-            }}
-            style={{
-              padding: '4px 8px',
-              fontSize: '14px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              width: '120px'
             }}
             placeholder="level"
           />
@@ -217,36 +252,31 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button className="top-bar-btn" onClick={handleRead}>
           读取关卡
         </button>
-        <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
-          <button 
-            className="top-bar-btn" 
+        <div className="top-bar-btn-group">
+          <button
+            className="top-bar-btn"
             onClick={onAutoFill}
             disabled={levelData.MapX === 0 || levelData.MapY === 0}
-            title={levelData.MapX === 0 || levelData.MapY === 0 
-              ? '请先配置地图尺寸' 
-              : isMaskEditing 
-              ? '请先退出构型编辑模式后再自动填充' 
-              : maskIndices.length === 0
-              ? `自动填充 Rope 路径（范围：全图 ${levelData.MapX}×${levelData.MapY}）`
-              : `自动填充 Rope 路径（范围：构型格 ${maskIndices.length}）`}
+            title={levelData.MapX === 0 || levelData.MapY === 0
+              ? '请先配置地图尺寸'
+              : isMaskEditing
+                ? '请先退出构型编辑模式后再自动填充'
+                : maskIndices.length === 0
+                  ? `自动填充 Rope 路径（范围：全图 ${levelData.MapX}×${levelData.MapY}）`
+                  : `自动填充 Rope 路径（范围：构型格 ${maskIndices.length}）`}
           >
             自动填充
             {maskIndices.length === 0 && levelData.MapX > 0 && levelData.MapY > 0 && (
-              <span style={{ fontSize: '10px', marginLeft: '4px', opacity: 0.7 }}>
-                (全图)
-              </span>
+              <span className="top-bar-btn-hint">(全图)</span>
             )}
             {maskIndices.length > 0 && (
-              <span style={{ fontSize: '10px', marginLeft: '4px', opacity: 0.7 }}>
-                ({maskIndices.length})
-              </span>
+              <span className="top-bar-btn-hint">({maskIndices.length})</span>
             )}
           </button>
           <button
-            className="top-bar-btn"
+            className="top-bar-btn top-bar-btn-icon"
             onClick={() => setShowConfigDialog(true)}
             title="自动填充设置"
-            style={{ padding: '8px 12px', minWidth: 'auto' }}
           >
             ⚙
           </button>
@@ -254,23 +284,100 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button className="top-bar-btn" onClick={handleComputeDifficulty} title="根据当前关卡计算难度（点击才计算）">
           计算难度
         </button>
-        <span style={{ fontSize: '14px', marginLeft: '4px' }}>
+        <span className="top-bar-difficulty-label">
           DifficultyScore: {difficulty !== null ? Math.round(difficulty.DifficultyScore) : '-'}
         </span>
         {difficulty !== null && (
           <button
             type="button"
-            className="top-bar-btn"
+            className="top-bar-btn top-bar-btn-sm"
             onClick={() => setShowDifficultyDetails((v) => !v)}
             title="展开/收起诊断详情"
-            style={{ padding: '4px 8px', minWidth: 'auto', fontSize: '12px' }}
           >
             {showDifficultyDetails ? '▼ 详情' : '▶ 详情'}
           </button>
         )}
-        <button className="top-bar-btn" onClick={onClearLevel}>
-          清空
-        </button>
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            ref={clearButtonRef}
+            className="top-bar-btn"
+            onClick={() => setClearMenuOpen((v) => !v)}
+          >
+            清空
+          </button>
+          {clearMenuOpen && (
+            <div
+              ref={clearMenuRef}
+              className="clear-menu"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '6px',
+                background: '#fff',
+                border: '1px solid #e5e5e5',
+                borderRadius: '8px',
+                boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
+                zIndex: 50,
+                minWidth: '160px',
+              }}
+            >
+              <div
+                className="clear-menu-item"
+                onClick={() => {
+                  if (onClearRopesOnly) {
+                    onClearRopesOnly();
+                  } else {
+                    // 向后兼容：如果没有提供 onClearRopesOnly，使用 onClearLevel
+                    onClearLevel();
+                  }
+                  setClearMenuOpen(false);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fff';
+                }}
+              >
+                仅清空 Rope 路径
+              </div>
+              <div
+                className="clear-menu-item"
+                onClick={() => {
+                  if (onClearAll) {
+                    onClearAll();
+                  } else {
+                    onClearLevel();
+                  }
+                  setClearMenuOpen(false);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  borderBottomLeftRadius: '8px',
+                  borderBottomRightRadius: '8px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fff';
+                }}
+              >
+                清空所有配置
+              </div>
+            </div>
+          )}
+        </div>
         <button className="top-bar-btn" onClick={onToggleMaskEditing}>
           {isMaskEditing ? '退出构型编辑' : '编辑构型'}
         </button>
@@ -287,6 +394,13 @@ export const TopBar: React.FC<TopBarProps> = ({
           onChange={handleFileChange}
           style={{ display: 'none' }}
         />
+      </div>
+      <div className="top-bar-right">
+        {autoTuneUIState.status !== 'idle' ? (
+          <div className="top-bar-autotune-wrap">
+            <AutoTuneBadge state={autoTuneUIState} />
+          </div>
+        ) : null}
       </div>
       {difficulty !== null && showDifficultyDetails && (
         <div

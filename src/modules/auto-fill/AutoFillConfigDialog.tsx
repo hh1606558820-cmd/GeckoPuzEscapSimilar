@@ -82,6 +82,23 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
       newErrors.maxRopes = '最多生成必须 ≥ 最少生成';
     }
 
+    // 留存优化（AutoTune）
+    const tMin = localConfig.targetScoreMin ?? 25;
+    const tMax = localConfig.targetScoreMax ?? 60;
+    if (typeof tMin === 'number' && (tMin < 0 || tMin > 100)) {
+      newErrors.targetScoreMin = '目标最低分 0~100';
+    }
+    if (typeof tMax === 'number' && (tMax < 0 || tMax > 100)) {
+      newErrors.targetScoreMax = '目标最高分 0~100';
+    }
+    if (typeof tMin === 'number' && typeof tMax === 'number' && tMax < tMin) {
+      newErrors.targetScoreMax = '目标最高分 ≥ 目标最低分';
+    }
+    const maxT = localConfig.maxTuneAttempts ?? 25;
+    if (typeof maxT === 'number' && (maxT < 1 || maxT > 100)) {
+      newErrors.maxTuneAttempts = '最大尝试次数 1~100';
+    }
+
     // seed 验证（可选）
     if (localConfig.seed !== null && localConfig.seed !== undefined) {
       if (typeof localConfig.seed !== 'number' || !Number.isInteger(localConfig.seed)) {
@@ -341,6 +358,74 @@ export const AutoFillConfigDialog: React.FC<AutoFillConfigDialogProps> = ({
                 若地图容量不足以达到最少数量，将自动忽略该限制并尽量填满地图
               </span>
             </div>
+          </div>
+
+          {/* 留存优化（AutoTune，默认关闭） */}
+          <div className="auto-fill-config-section">
+            <h3>留存优化</h3>
+            <div className="auto-fill-config-field">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={localConfig.autoTuneEnabled ?? false}
+                  onChange={(e) => updateField('autoTuneEnabled', e.target.checked)}
+                />
+                <span>AutoTune（开启后按目标难度区间自动调参，默认 OFF）</span>
+              </label>
+            </div>
+            {localConfig.autoTuneEnabled && (
+              <>
+                <div className="auto-fill-config-field">
+                  <label>
+                    <span>目标难度区间 MinScore：</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={localConfig.targetScoreMin ?? 25}
+                      onChange={(e) => updateField('targetScoreMin', Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 25)))}
+                    />
+                  </label>
+                  {errors.targetScoreMin && <span className="auto-fill-config-error">{errors.targetScoreMin}</span>}
+                </div>
+                <div className="auto-fill-config-field">
+                  <label>
+                    <span>目标难度区间 MaxScore：</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={localConfig.targetScoreMax ?? 60}
+                      onChange={(e) => updateField('targetScoreMax', Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 60)))}
+                    />
+                  </label>
+                  {errors.targetScoreMax && <span className="auto-fill-config-error">{errors.targetScoreMax}</span>}
+                </div>
+                <div className="auto-fill-config-field">
+                  <label>
+                    <span>最大尝试次数 MaxAttempts：</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={localConfig.maxTuneAttempts ?? 25}
+                      onChange={(e) => updateField('maxTuneAttempts', Math.max(1, Math.min(100, Math.floor(parseInt(e.target.value, 10) || 25))))}
+                    />
+                  </label>
+                  {errors.maxTuneAttempts && <span className="auto-fill-config-error">{errors.maxTuneAttempts}</span>}
+                </div>
+                <div className="auto-fill-config-field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={localConfig.hardGuardsEnabled ?? true}
+                      onChange={(e) => updateField('hardGuardsEnabled', e.target.checked)}
+                    />
+                    <span>HardGuards（高流失结构检测，默认 ON）</span>
+                  </label>
+                </div>
+              </>
+            )}
           </div>
 
           {/* 形态偏好 */}

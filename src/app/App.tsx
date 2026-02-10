@@ -29,6 +29,7 @@ import {
 import { getDefaultColorIdx } from '@/modules/rope-color-pool';
 import { autoFillRopes } from '@/modules/auto-fill/autoFillRopes';
 import { loadAutoFillConfig, saveAutoFillConfig, StoredAutoFillConfig } from '@/modules/auto-fill/autoFillConfig';
+import { autoTuneGenerate, tuneResultToUIState, type AutoTuneUIState } from '@/modules/auto-fill/autoTune';
 import { TopBar } from './layout/TopBar';
 import { ResizableSidebar } from './layout/ResizableSidebar';
 import { RightJsonPanel } from './layout/RightJsonPanel';
@@ -76,6 +77,8 @@ export const App: React.FC = () => {
   const [autoFillConfig, setAutoFillConfig] = useState<StoredAutoFillConfig>(loadAutoFillConfig());
   // 自动填充容量不足时的温和提示（不报错、不弹窗）
   const [autoFillFallbackHint, setAutoFillFallbackHint] = useState<string | null>(null);
+  // AutoTune UI 状态（idle / running / success / fail），顶栏按 status 显示徽章
+  const [autoTuneUIState, setAutoTuneUIState] = useState<AutoTuneUIState>({ status: 'idle' });
 
   // 当 MapX/MapY 改变时，自动重置 selectedIndices（避免越界）
   useEffect(() => {
@@ -100,8 +103,29 @@ export const App: React.FC = () => {
     setSelectedIndices([]);
   };
 
-  // 清空关卡配置，回到初始状态
-  const handleClearLevel = () => {
+  // 仅清空 Rope 路径（保留构型/地图尺寸/其它配置）
+  const handleClearRopesOnly = () => {
+    const confirmed = window.confirm('确定仅清空 Rope 路径吗？构型格和地图尺寸将保留');
+    if (!confirmed) {
+      return;
+    }
+
+    // 仅清空 Rope 相关数据
+    setLevelData((prev) => ({
+      ...prev,
+      Rope: [],
+    }));
+
+    // 清空 Rope 相关的 UI 状态
+    setCurrentRopeIndex(-1);
+    setIsRopeEditing(false);
+    setCurrentEditingPath([]);
+    setSelectedRopeIndex(null);
+    // 注意：不改变 maskIndices、MapX/MapY、文件名等
+  };
+
+  // 清空所有配置（等同于原来的"清空"逻辑）
+  const handleClearAll = () => {
     const confirmed = window.confirm('确定清空当前关卡配置吗？该操作不可撤销');
     if (!confirmed) {
       return;
@@ -125,6 +149,9 @@ export const App: React.FC = () => {
     setLevelName('level');
     setIsLevelNameDirty(false);
   };
+
+  // 清空关卡配置，回到初始状态（保留用于向后兼容）
+  const handleClearLevel = handleClearAll;
 
   // 处理选择变更（地图生成器用）
   const handleSelectionChange = (indices: number[]) => {
@@ -429,26 +456,50 @@ export const App: React.FC = () => {
         : Array.from({ length: total }, (_, i) => i);
 
     setAutoFillFallbackHint(null);
-    const result = autoFillRopes({
-      MapX: levelData.MapX,
-      MapY: levelData.MapY,
-      maskIndices: fillableIndices,
-      config: autoFillConfig,
-    });
+    setAutoTuneUIState({ status: 'idle' });
 
-    if (result.ropes.length === 0) {
-      alert('自动填充失败：无法生成有效的 Rope 路径');
+    if (!autoFillConfig.autoTuneEnabled) {
+      const result = autoFillRopes({
+        MapX: levelData.MapX,
+        MapY: levelData.MapY,
+        maskIndices: fillableIndices,
+        config: autoFillConfig,
+      });
+
+      if (result.ropes.length === 0) {
+        alert('自动填充失败：无法生成有效的 Rope 路径');
+        return;
+      }
+
+      if (result.fallbackHint) {
+        setAutoFillFallbackHint(result.fallbackHint);
+      }
+
+      setLevelData((prev) => ({
+        ...prev,
+        Rope: [...prev.Rope, ...result.ropes],
+      }));
       return;
     }
 
-    if (result.fallbackHint) {
-      setAutoFillFallbackHint(result.fallbackHint);
-    }
+    setAutoTuneUIState({ status: 'running' });
+    const levelBase: LevelData = { ...levelData, Rope: [] };
+    const generateOnce = (cfg: StoredAutoFillConfig) => {
+      const r = autoFillRopes({
+        MapX: levelBase.MapX,
+        MapY: levelBase.MapY,
+        maskIndices: fillableIndices,
+        config: cfg,
+      });
+      return r.ropes;
+    };
+    const tuneResult = autoTuneGenerate(levelBase, autoFillConfig, generateOnce);
+    setAutoTuneUIState(tuneResultToUIState(tuneResult));
 
-    setLevelData((prev) => ({
-      ...prev,
-      Rope: [...prev.Rope, ...result.ropes],
-    }));
+    // 有 ropes 则展示（失败时也保留最后一次结果，不报错不打断）
+    if (tuneResult.ropes.length > 0) {
+      setLevelData({ ...levelBase, Rope: tuneResult.ropes });
+    }
   };
 
   return (
@@ -472,6 +523,8 @@ export const App: React.FC = () => {
         onToggleRopeOverlay={handleToggleRopeOverlay}
         onToggleJsonPanel={handleToggleJsonPanel}
         onClearLevel={handleClearLevel}
+        onClearRopesOnly={handleClearRopesOnly}
+        onClearAll={handleClearAll}
         onAutoFill={handleAutoFill}
         maskIndices={maskIndices}
         autoFillConfig={autoFillConfig}
@@ -480,6 +533,7 @@ export const App: React.FC = () => {
           setAutoFillConfig(newConfig);
         }}
         autoFillFallbackHint={autoFillFallbackHint}
+        autoTuneUIState={autoTuneUIState}
       />
       
       <div className="app-layout">
